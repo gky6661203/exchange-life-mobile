@@ -60,7 +60,7 @@ for (const action of ['update', 'delete'] as const) test(`a pending expense conv
 test('checklists, courses, exchanges, places and documents support validated CRUD', async t => {
   const server = await harness(); t.after(server.close); await server.login();
   const examples = {
-    checklists: { group: 'preparation', title: 'Apply for a visa', dueDate: '2026-10-01', done: false },
+    checklists: { group: 'daily', title: 'Apply for a visa', dueDate: '2026-10-01', done: false },
     courses: { name: 'History', room: 'A2', teacher: 'Teacher', weekday: 1, startPeriod: 2, endPeriod: 3 },
     exchanges: { date: '2026-09-01', fromCurrency: 'CNY', toCurrency: 'EUR', fromAmount: 100, toAmount: 12, note: '' },
     places: { name: 'Library', category: 'study', address: 'Campus', note: '', visited: false },

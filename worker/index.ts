@@ -23,12 +23,12 @@ function fail(status: 400 | 401 | 403 | 404 | 409 | 413 | 503, message: string):
   throw new HTTPException(status, { message });
 }
 function jsonError(error: unknown): string {
-  return error instanceof z.ZodError ? error.issues[0]?.message || '欄位格式不正確' : '資料格式不正確';
+  return error instanceof z.ZodError ? error.issues[0]?.message || '字段格式不正确' : '资料格式不正确';
 }
 async function readJson<T>(c: Parameters<typeof app.fetch>[0] extends never ? never : any, schema: z.ZodType<T>): Promise<T> {
-  if (!c.req.header('Content-Type')?.toLowerCase().startsWith('application/json')) fail(400, '請使用 JSON 格式');
+  if (!c.req.header('Content-Type')?.toLowerCase().startsWith('application/json')) fail(400, '请使用 JSON 格式');
   const text = await c.req.text();
-  if (new TextEncoder().encode(text).byteLength > 128 * 1024) fail(413, '資料內容過大');
+  if (new TextEncoder().encode(text).byteLength > 128 * 1024) fail(413, '资料内容过大');
   try { return schema.parse(JSON.parse(text)); } catch (error) { fail(400, jsonError(error)); }
 }
 function ownerFromRequest(request: Request): string | null {
@@ -50,7 +50,7 @@ async function one<T>(env: Env, owner: string, collection: Collection, id: strin
 function today(profileValue: Profile) { return todayInZone(Date.now(), profileValue.timeZone); }
 function dateShift(date: string, days: number) { return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY).toISOString().slice(0, 10); }
 function collectionParam(value: string): Collection {
-  if (!collections.includes(value as Collection)) fail(404, '找不到此資料類別');
+  if (!collections.includes(value as Collection)) fail(404, '找不到此资料类别');
   return value as Collection;
 }
 function idParam(value: string) { if (!UUID.test(value)) fail(404, '找不到此項目'); return value; }
@@ -96,7 +96,7 @@ async function rates(env: Env, owner: string, base: string, quote: string, reque
       await env.DB.batch(statements); rows = await cached();
     } catch { stale = true; }
   }
-  if (!rows.length) fail(503, '暫時無法取得此幣別的可靠匯率，請稍後再試');
+  if (!rows.length) fail(503, '暂时无法取得此币种的可靠汇率，请稍后再试');
   const latest = rows.at(-1)!;
   if (Date.parse(`${target}T00:00:00Z`) - Date.parse(`${latest.date}T00:00:00Z`) > 7 * DAY) stale = true;
   return { base, quote, date: latest.date, rate: latest.rate, stale, history: rows.map(row => ({ date: row.date, rate: row.rate })) };
@@ -108,13 +108,13 @@ app.use('*', async (c, next) => {
   c.header('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
 });
 app.get('/api/auth/status', c => c.json({ authenticated: !!ownerFromRequest(c.req.raw), configured: true, setupAllowed: false }));
-app.post('/api/auth/login', c => c.json({ error: '此版本使用 Sites 帳戶保護，請重新開啟網站登入' }, 401));
-app.post('/api/auth/logout', () => fail(409, '此網站由 Sites 帳戶保護，請關閉頁面以結束使用'));
+app.post('/api/auth/login', c => c.json({ error: '此版本使用 Sites 账户保护，请重新打开网站登录' }, 401));
+app.post('/api/auth/logout', () => fail(409, '此网站由 Sites 账户保护，请关闭页面以结束使用'));
 app.use('/api/*', async (c, next) => {
   c.header('Cache-Control', 'no-store');
-  const owner = ownerFromRequest(c.req.raw); if (!owner) fail(401, '請先登入 Sites 以存取私人資料');
+  const owner = ownerFromRequest(c.req.raw); if (!owner) fail(401, '请先登录 Sites 以存取私人资料');
   c.set('owner', owner);
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(c.req.method) && c.req.header('X-Requested-With') !== 'ExchangeLife') fail(403, '請透過應用程式操作');
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(c.req.method) && c.req.header('X-Requested-With') !== 'ExchangeLife') fail(403, '请透过应用操作');
   await next();
 });
 app.get('/api/data', async c => {
@@ -126,23 +126,23 @@ app.put('/api/profile', async c => {
   const owner = c.get('owner'), value = await readJson(c, profileSchema), current = await profile(c.env, owner);
   if (value.baseCurrency !== current.baseCurrency) {
     const count = await c.env.DB.prepare("SELECT COUNT(*) count FROM items WHERE owner=? AND collection='expenses'").bind(owner).first<{ count: number }>();
-    if (count?.count) fail(409, '已有記帳資料時無法變更本位幣，以免混合不同幣別的統計');
+    if (count?.count) fail(409, '已有记账资料时无法变更本位币，以免混合不同币种的统计');
   }
   await c.env.DB.prepare('INSERT INTO profiles(owner,data,updated_at) VALUES(?,?,?) ON CONFLICT(owner) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(owner, JSON.stringify(value), Date.now()).run();
   return c.json(value);
 });
 app.get('/api/rates', async c => {
   const base = currency.safeParse(c.req.query('base')), quote = currency.safeParse(c.req.query('quote')), date = c.req.query('date');
-  if (!base.success || !quote.success || (date !== undefined && !isDate(date))) fail(400, '請提供有效的幣別與日期');
-  const p = await profile(c.env, c.get('owner')); if (date && date > today(p)) fail(400, '日期不可晚於今天');
+  if (!base.success || !quote.success || (date !== undefined && !isDate(date))) fail(400, '请提供有效的币种与日期');
+  const p = await profile(c.env, c.get('owner')); if (date && date > today(p)) fail(400, '日期不可晚于今天');
   return c.json(await rates(c.env, c.get('owner'), base.data, quote.data, date));
 });
 app.post('/api/uploads', async c => {
   const form = await c.req.formData(), file = form.get('image');
-  if (!(file instanceof File)) fail(400, '請選擇證件圖片');
-  if (!file.size || file.size > 8 * 1024 * 1024) fail(413, '圖片大小必須介於 1 位元組及 8 MB 之間');
+  if (!(file instanceof File)) fail(400, '请选择证件图片');
+  if (!file.size || file.size > 8 * 1024 * 1024) fail(413, '图片大小必须介于 1 字节及 8 MB 之间');
   const bytes = new Uint8Array(await file.arrayBuffer()), mime = imageMime(bytes);
-  if (!mime || mime !== file.type.toLowerCase()) fail(400, '圖片格式無效，請使用 JPEG、PNG 或 WebP 圖片');
+  if (!mime || mime !== file.type.toLowerCase()) fail(400, '图片格式无效，请使用 JPEG、PNG 或 WebP 图片');
   const id = crypto.randomUUID(), owner = c.get('owner'), key = `${await ownerKey(owner)}/${id}`;
   await c.env.UPLOADS.put(key, bytes, { httpMetadata: { contentType: mime }, customMetadata: { name: file.name.slice(0, 180) } });
   await c.env.DB.prepare('INSERT INTO uploads(owner,id,mime,name,created_at) VALUES(?,?,?,?,?)').bind(owner, id, mime, file.name.replace(/[\\/\x00-\x1f]/g, '_').slice(0, 180), Date.now()).run();
@@ -151,8 +151,8 @@ app.post('/api/uploads', async c => {
 app.get('/api/uploads/:id', async c => {
   const id = idParam(c.req.param('id')), owner = c.get('owner');
   const meta = await c.env.DB.prepare('SELECT mime FROM uploads WHERE owner=? AND id=?').bind(owner, id).first<{ mime: string }>();
-  if (!meta) fail(404, '找不到圖片');
-  const object = await c.env.UPLOADS.get(`${await ownerKey(owner)}/${id}`); if (!object) fail(404, '找不到圖片');
+  if (!meta) fail(404, '找不到图片');
+  const object = await c.env.UPLOADS.get(`${await ownerKey(owner)}/${id}`); if (!object) fail(404, '找不到图片');
   return new Response(object.body, { headers: { 'Content-Type': meta.mime, 'Cache-Control': 'no-store', 'Content-Disposition': 'inline', 'X-Content-Type-Options': 'nosniff' } });
 });
 app.get('/api/export', async c => {
@@ -170,17 +170,17 @@ async function saveItem(c: any) {
   const value: any = await readJson(c, schemas[collection] as z.ZodType<any>), item: any = { ...value, id };
   const p = await profile(c.env, owner);
   if (collection === 'expenses') {
-    if (item.date > today(p)) fail(400, '支出日期不能晚於今天');
-    const result = await rates(c.env, owner, item.currency, p.baseCurrency, item.date); if (result.stale) fail(503, '目前只能取得過期匯率，請稍後再儲存這筆支出');
+    if (item.date > today(p)) fail(400, '支出日期不能晚于今天');
+    const result = await rates(c.env, owner, item.currency, p.baseCurrency, item.date); if (result.stale) fail(503, '目前只能取得过期汇率，请稍后再保存这笔支出');
     item.rate = result.rate; item.baseAmount = Math.round((item.amount * result.rate + Number.EPSILON) * 100) / 100; item.baseCurrency = p.baseCurrency; item.rateDate = result.date;
   }
-  if (collection === 'exchanges' && item.date > today(p)) fail(400, '換匯日期不能晚於今天');
+  if (collection === 'exchanges' && item.date > today(p)) fail(400, '换汇日期不能晚于今天');
   if (collection === 'documents' && item.imageId) {
-    const exists = await c.env.DB.prepare('SELECT id FROM uploads WHERE owner=? AND id=?').bind(owner, item.imageId).first(); if (!exists) fail(400, '證件圖片不存在，請重新上傳');
+    const exists = await c.env.DB.prepare('SELECT id FROM uploads WHERE owner=? AND id=?').bind(owner, item.imageId).first(); if (!exists) fail(400, '证件图片不存在，请重新上传');
   }
   if (collection === 'courses') {
     const courses = await list<Course>(c.env, owner, 'courses');
-    if (courses.some(course => course.id !== id && course.weekday === item.weekday && course.startPeriod <= item.endPeriod && course.endPeriod >= item.startPeriod)) fail(409, '這個時段已有課程，請調整星期或節次');
+    if (courses.some(course => course.id !== id && course.weekday === item.weekday && course.startPeriod <= item.endPeriod && course.endPeriod >= item.startPeriod)) fail(409, '这个时段已有课程，请调整星期或节次');
   }
   const now = Date.now();
   await c.env.DB.prepare('INSERT INTO items(owner,collection,id,data,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(owner,collection,id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(owner, collection, id, JSON.stringify(item), previous ? (await c.env.DB.prepare('SELECT created_at FROM items WHERE owner=? AND collection=? AND id=?').bind(owner, collection, id).first<{ created_at: number }>())?.created_at || now : now, now).run();
@@ -202,6 +202,10 @@ app.delete('/api/:collection/:id', async c => {
 });
 app.all('/api/*', c => c.json({ error: '找不到此 API' }, 404));
 app.notFound(c => c.env.ASSETS.fetch(c.req.raw));
-app.onError((error, c) => error instanceof HTTPException ? c.json({ error: error.message }, error.status) : (console.error('[exchange-life]', error instanceof Error ? error.name : 'UnknownError'), c.json({ error: '伺服器暫時無法完成操作，請稍後再試' }, 500)));
+app.onError((error, c) => error instanceof HTTPException ? c.json({ error: error.message }, error.status) : (console.error('[exchange-life]', error instanceof Error ? error.name : 'UnknownError'), c.json({ error: '服务器暂时无法完成操作，请稍后再试' }, 500)));
 
 export default app;
+
+
+
+

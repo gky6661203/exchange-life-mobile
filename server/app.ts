@@ -140,21 +140,21 @@ export async function createApp(options: AppOptions = {}) {
       attempts.set(key, entry);
       if (entry.count > limit) {
         c.header('Retry-After', String(Math.max(1, Math.ceil((entry.start + 15 * 60 * 1000 - now()) / 1000))));
-        apiError(429, '嘗試次數過多，請 15 分鐘後再試');
+        apiError(429, '尝试次数过多，请 15 分钟后再试');
       }
     }
   }
   async function json<T>(c: Context, schema: z.ZodType<T>): Promise<T> {
-    if (!c.req.header('Content-Type')?.toLowerCase().startsWith('application/json')) apiError(400, '請使用 JSON 格式');
+    if (!c.req.header('Content-Type')?.toLowerCase().startsWith('application/json')) apiError(400, '请使用 JSON 格式');
     let data: unknown;
-    try { data = await c.req.json(); } catch { apiError(400, 'JSON 格式不正確'); }
+    try { data = await c.req.json(); } catch { apiError(400, 'JSON 格式不正确'); }
     const parsed = schema.safeParse(data);
-    if (!parsed.success) apiError(400, parsed.error.issues[0]?.message ?? '欄位格式不正確');
+    if (!parsed.success) apiError(400, parsed.error.issues[0]?.message ?? '字段格式不正确');
     return parsed.data;
   }
   function requireCollection(c: Context): Collection {
     const collection = c.req.param('collection');
-    if (!collections.includes(collection as Collection)) apiError(404, '找不到此資料類別');
+    if (!collections.includes(collection as Collection)) apiError(404, '找不到此资料类别');
     return collection as Collection;
   }
   function requireId(c: Context): string {
@@ -181,7 +181,7 @@ export async function createApp(options: AppOptions = {}) {
     if (origin) {
       try { validOrigin = publicOrigins.has(origin) || (!production && origin === new URL(c.req.url).origin); } catch { validOrigin = false; }
     }
-    if (!validOrigin) apiError(403, '此來源不允許存取私人資料');
+    if (!validOrigin) apiError(403, '此來源不允许存取私人资料');
     if (origin && publicOrigins.has(origin)) {
       c.header('Access-Control-Allow-Origin', origin);
       c.header('Access-Control-Allow-Credentials', 'true');
@@ -192,20 +192,20 @@ export async function createApp(options: AppOptions = {}) {
       c.header('Access-Control-Allow-Headers', 'Content-Type,X-Requested-With');
       return c.body(null, 204);
     }
-    if (MUTATIONS.has(c.req.method) && c.req.header('X-Requested-With') !== 'ExchangeLife') apiError(403, '請透過應用程式操作');
-    if (c.req.header('Sec-Fetch-Site') === 'cross-site' && (!origin || !publicOrigins.has(origin))) apiError(403, '此來源不允許存取私人資料');
+    if (MUTATIONS.has(c.req.method) && c.req.header('X-Requested-With') !== 'ExchangeLife') apiError(403, '请透过应用操作');
+    if (c.req.header('Sec-Fetch-Site') === 'cross-site' && (!origin || !publicOrigins.has(origin))) apiError(403, '此來源不允许存取私人资料');
     await next();
   });
-  const uploadLimit = bodyLimit({ maxSize: UPLOAD_BYTES + 64 * 1024, onError: c => c.json({ error: '上傳檔案不得超過 8 MB' }, 413) });
-  const jsonLimit = bodyLimit({ maxSize: 128 * 1024, onError: c => c.json({ error: '資料內容過大' }, 413) });
+  const uploadLimit = bodyLimit({ maxSize: UPLOAD_BYTES + 64 * 1024, onError: c => c.json({ error: '上传文件不得超过 8 MB' }, 413) });
+  const jsonLimit = bodyLimit({ maxSize: 128 * 1024, onError: c => c.json({ error: '资料内容过大' }, 413) });
   app.use('/api/*', (c, next) => (c.req.path === '/api/uploads' ? uploadLimit : jsonLimit)(c, next));
 
   app.get('/api/auth/status', c => c.json({ authenticated: authenticated(c), configured: !!store.getSetting('password'), setupAllowed: setupAllowed(c) }));
   app.post('/api/auth/setup', async c => {
-    if (!setupAllowed(c)) apiError(403, '首次設定僅允許在本機開發環境進行，正式環境請設定 APP_PASSWORD');
+    if (!setupAllowed(c)) apiError(403, '首次设置仅允许在本机开发环境进行，正式环境请设置 APP_PASSWORD');
     rateLimit(c);
     const { password: initialPassword } = await json(c, passwordSchema);
-    if (store.getSetting('password')) apiError(409, '密碼已設定，請直接登入');
+    if (store.getSetting('password')) apiError(409, '密码已设置，请直接登录');
     store.setSetting('password', hashPassword(initialPassword));
     setSession(c);
     return c.json({ authenticated: true }, 201);
@@ -215,7 +215,7 @@ export async function createApp(options: AppOptions = {}) {
     const { password: attempt } = await json(c, loginSchema);
     const encoded = store.getSetting('password');
     const matches = await verifyPassword(attempt, encoded ?? dummyPassword);
-    if (!encoded || !matches) apiError(401, '密碼不正確或帳戶尚未設定');
+    if (!encoded || !matches) apiError(401, '密码不正确或账户尚未设置');
     setSession(c);
     return c.json({ authenticated: true });
   });
@@ -226,14 +226,14 @@ export async function createApp(options: AppOptions = {}) {
     return c.body(null, 204);
   });
   app.use('/api/*', async (c, next) => {
-    if (!authenticated(c)) apiError(401, '請先登入以存取私人資料');
+    if (!authenticated(c)) apiError(401, '请先登录以存取私人资料');
     await next();
   });
 
   app.get('/api/data', c => c.json(store.data()));
   app.put('/api/profile', async c => {
     const profile = await json(c, profileSchema);
-    if (profile.baseCurrency !== store.profile().baseCurrency && store.list('expenses').length) apiError(409, '已有記帳資料時無法變更本位幣，以免混合不同幣別的統計');
+    if (profile.baseCurrency !== store.profile().baseCurrency && store.list('expenses').length) apiError(409, '已有记账资料时无法变更本位币，以免混合不同币种的统计');
     store.setSetting('profile', JSON.stringify(profile));
     return c.json(profile);
   });
@@ -241,7 +241,7 @@ export async function createApp(options: AppOptions = {}) {
     const base = currency.safeParse(c.req.query('base'));
     const quote = currency.safeParse(c.req.query('quote'));
     const date = c.req.query('date');
-    if (!base.success || !quote.success || (date !== undefined && (!isDate(date) || date > todayInZone(now(), store.profile().timeZone)))) apiError(400, '請提供有效的幣別與日期，日期不可晚於今天');
+    if (!base.success || !quote.success || (date !== undefined && (!isDate(date) || date > todayInZone(now(), store.profile().timeZone)))) apiError(400, '请提供有效的币种与日期，日期不可晚于今天');
     return c.json(await rates.get(base.data, quote.data, date));
   });
   app.get('/api/export', c => {
@@ -252,13 +252,13 @@ export async function createApp(options: AppOptions = {}) {
 
   app.post('/api/uploads', async c => {
     let form: FormData;
-    try { form = await c.req.formData(); } catch { apiError(400, '請使用表單上傳圖片'); }
+    try { form = await c.req.formData(); } catch { apiError(400, '请使用表单上传图片'); }
     const file = form.get('image');
-    if (!(file instanceof File)) apiError(400, '請選擇證件圖片');
-    if (file.size <= 0 || file.size > UPLOAD_BYTES) apiError(413, '圖片大小必須介於 1 位元組及 8 MB 之間');
+    if (!(file instanceof File)) apiError(400, '请选择证件图片');
+    if (file.size <= 0 || file.size > UPLOAD_BYTES) apiError(413, '图片大小必须介于 1 字节及 8 MB 之间');
     const bytes = Buffer.from(await file.arrayBuffer());
     const mime = imageMime(bytes);
-    if (!mime || mime !== file.type.toLowerCase()) apiError(400, '圖片格式無效，請使用 JPEG、PNG 或 WebP 圖片');
+    if (!mime || mime !== file.type.toLowerCase()) apiError(400, '图片格式无效，请使用 JPEG、PNG 或 WebP 图片');
     const id = randomUUID();
     const name = file.name.replace(/[\x00-\x1f\x7f/\\]/g, '_').slice(0, 200) || 'document-image';
     store.db.prepare('INSERT INTO uploads(id,mime,name,bytes,created_at) VALUES(?,?,?,?,?)').run(id, mime, name, bytes, now());
@@ -267,7 +267,7 @@ export async function createApp(options: AppOptions = {}) {
   app.get('/api/uploads/:id', c => {
     const id = requireId(c);
     const row = store.db.prepare('SELECT id,mime,name,bytes,created_at FROM uploads WHERE id=?').get(id) as unknown as UploadRow | undefined;
-    if (!row) apiError(404, '找不到圖片');
+    if (!row) apiError(404, '找不到图片');
     c.header('Content-Type', row.mime);
     c.header('Content-Disposition', `inline; filename="document.${row.mime.split('/')[1]}"`);
     c.header('Content-Security-Policy', "default-src 'none'; sandbox");
@@ -275,8 +275,8 @@ export async function createApp(options: AppOptions = {}) {
   });
   app.delete('/api/uploads/:id', c => {
     const id = requireId(c);
-    if (!store.db.prepare('SELECT id FROM uploads WHERE id=?').get(id)) apiError(404, '找不到圖片');
-    if (store.list<DocumentItem>('documents').some(item => item.imageId === id)) apiError(409, '圖片仍由證件使用，請先移除證件中的圖片');
+    if (!store.db.prepare('SELECT id FROM uploads WHERE id=?').get(id)) apiError(404, '找不到图片');
+    if (store.list<DocumentItem>('documents').some(item => item.imageId === id)) apiError(409, '图片仍由证件使用，请先移除证件中的图片');
     store.db.prepare('DELETE FROM uploads WHERE id=?').run(id);
     return c.body(null, 204);
   });
@@ -290,27 +290,27 @@ export async function createApp(options: AppOptions = {}) {
     const item = { ...await json(c, schemas[collection] as z.ZodType<Record<string, unknown>>), id } as Record<string, unknown> & { id: string };
     if (collection === 'expenses') {
       const profile = store.profile();
-      if ((item.date as string) > todayInZone(now(), profile.timeZone)) apiError(400, '支出日期不能晚於今天');
+      if ((item.date as string) > todayInZone(now(), profile.timeZone)) apiError(400, '支出日期不能晚于今天');
       const rate = await rates.get(item.currency as string, profile.baseCurrency, item.date as string);
-      if (rate.stale) apiError(503, '目前只能取得過期匯率，請稍後再儲存這筆支出');
+      if (rate.stale) apiError(503, '目前只能取得过期汇率，请稍后再保存这笔支出');
       item.rate = rate.rate;
       item.baseAmount = Math.round(((item.amount as number) * rate.rate + Number.EPSILON) * 100) / 100;
       item.baseCurrency = profile.baseCurrency;
       item.rateDate = rate.date;
-      if (store.profile().baseCurrency !== profile.baseCurrency) apiError(409, '本位幣剛剛變更，請重新儲存支出');
-      if (!Number.isFinite(item.baseAmount) || (item.baseAmount as number) > 1_000_000_000_000) apiError(400, '換算後金額超出上限');
+      if (store.profile().baseCurrency !== profile.baseCurrency) apiError(409, '本位币剛剛变更，请重新保存支出');
+      if (!Number.isFinite(item.baseAmount) || (item.baseAmount as number) > 1_000_000_000_000) apiError(400, '换算后金额超出上限');
     }
-    if (collection === 'exchanges' && (item.date as string) > todayInZone(now(), store.profile().timeZone)) apiError(400, '換匯日期不能晚於今天');
-    if (collection === 'documents' && item.imageId && !store.db.prepare('SELECT id FROM uploads WHERE id=?').get(item.imageId as string)) apiError(400, '證件圖片不存在，請重新上傳');
+    if (collection === 'exchanges' && (item.date as string) > todayInZone(now(), store.profile().timeZone)) apiError(400, '换汇日期不能晚于今天');
+    if (collection === 'documents' && item.imageId && !store.db.prepare('SELECT id FROM uploads WHERE id=?').get(item.imageId as string)) apiError(400, '证件图片不存在，请重新上传');
     if (collection === 'courses') {
       const course = item as unknown as Course;
-      if (store.list<Course>('courses').some(other => other.id !== id && other.weekday === course.weekday && other.startPeriod <= course.endPeriod && other.endPeriod >= course.startPeriod)) apiError(409, '這個時段已有課程，請調整星期或節次');
+      if (store.list<Course>('courses').some(other => other.id !== id && other.weekday === course.weekday && other.startPeriod <= course.endPeriod && other.endPeriod >= course.startPeriod)) apiError(409, '这个时段已有课程，请调整星期或节次');
     }
     // Recheck the original snapshot after awaited body/rate reads so older requests cannot overwrite newer saves.
     if (c.req.method === 'PUT') {
       const current = store.get(collection, id);
-      if (!current) apiError(404, '此項目已刪除，請重新整理');
-      if (JSON.stringify(current) !== JSON.stringify(previous)) apiError(409, '此項目剛剛更新，請重新整理後再儲存');
+      if (!current) apiError(404, '此項目已删除，请重新整理');
+      if (JSON.stringify(current) !== JSON.stringify(previous)) apiError(409, '此項目剛剛更新，请重新整理后再保存');
     }
     store.save(collection, item, now());
     if (collection === 'documents' && previous?.imageId !== item.imageId) removeUnusedImage(previous?.imageId);
@@ -338,7 +338,11 @@ export async function createApp(options: AppOptions = {}) {
     if (error instanceof RatesUnavailable) return c.json({ error: error.message }, 503);
     // Never log request bodies, passwords, document metadata, or private record contents.
     console.error('[exchange-life] Request failed:', error instanceof Error ? error.name : 'UnknownError');
-    return c.json({ error: '伺服器暫時無法完成操作，請稍後再試' }, 500);
+    return c.json({ error: '服务器暂时无法完成操作，请稍后再试' }, 500);
   });
   return { app, store, rates, close: () => store.close() };
 }
+
+
+
+

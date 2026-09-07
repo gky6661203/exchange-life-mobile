@@ -8,9 +8,13 @@ export async function api<T = unknown>(path: string, options: RequestInit = {}):
   if (!response.ok) {
     const value = await response.json().catch(() => ({}));
     if (response.status === 401) window.dispatchEvent(new Event('session-expired'));
-    throw new Error(value.error || '連線暫時中斷，請稍後再試');
+    throw new Error(value.error || '联网暂时中断，请稍后再试');
   }
   return response.status === 204 ? undefined as T : response.json();
 }
 export const saveItem = (collection: string, value: unknown, id?: string) => api(`/${collection}${id ? `/${id}` : ''}`, { method: id ? 'PUT' : 'POST', body: JSON.stringify(value) });
 export const deleteItem = (collection: string, id: string) => api(`/${collection}/${id}`, { method: 'DELETE' });
+
+
+
+

@@ -7,7 +7,7 @@ interface CachedRow extends RateRow { fetched_at: number }
 const ONE_DAY = 86_400_000;
 
 export class RatesUnavailable extends Error {
-  constructor() { super('暫時無法取得此幣別的可靠匯率，請稍後再試'); }
+  constructor() { super('暂时无法取得此币种的可靠汇率，请稍后再试'); }
 }
 
 /** Only actual provider observations are cached; missing days are never interpolated. */
@@ -68,3 +68,7 @@ export class RateService {
     return { base, quote, date: latest.date, rate: latest.rate, stale: stale || tooOld, history: rows.map(row => ({ date: row.date, rate: row.rate })) };
   }
 }
+
+
+
+
