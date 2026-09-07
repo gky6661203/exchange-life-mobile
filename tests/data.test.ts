@@ -85,7 +85,7 @@ test('course conflicts include partial overlaps and reject out-of-range day/peri
   assert.equal((await server.request('/courses', 'POST', { ...course, startPeriod: 7, endPeriod: 8 })).status, 201);
   assert.equal((await server.request('/courses', 'POST', { ...course, weekday: 4 })).status, 201);
   assert.equal((await server.request(`/courses/${created.id}`, 'PUT', { ...course, name: 'Updated' })).status, 200);
-  for (const patch of [{ weekday: 0 }, { weekday: 8 }, { startPeriod: 0 }, { endPeriod: 17 }, { startPeriod: 7, endPeriod: 6 }, { weekday: 1.5 }]) assert.equal((await server.request('/courses', 'POST', { ...course, ...patch })).status, 400);
+  for (const patch of [{ weekday: 0 }, { weekday: 8 }, { startPeriod: 0 }, { endPeriod: 15 }, { startPeriod: 7, endPeriod: 6 }, { weekday: 1.5 }]) assert.equal((await server.request('/courses', 'POST', { ...course, ...patch })).status, 400);
 });
 
 test('malformed JSON and oversized payloads produce controlled errors', async t => {

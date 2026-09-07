@@ -33,7 +33,7 @@ export const schemas = {
   expenses: z.object({ amount: money, currency, category: name, note, date: requiredDate }),
   documents: z.object({ name, number: shortText, expiryDate: optionalDate, note, imageId: z.string().uuid().optional() }),
   checklists: z.object({ group: z.enum(['learning', 'travel', 'daily']), title: name, dueDate: optionalDate, done: z.boolean() }),
-  courses: z.object({ name, room: shortText, teacher: shortText, weekday: z.number().int().min(1).max(7), startPeriod: z.number().int().min(1).max(16), endPeriod: z.number().int().min(1).max(16) }).refine(value => value.endPeriod >= value.startPeriod, '结束节次不能早于开始节次'),
+  courses: z.object({ name, room: shortText, teacher: shortText, weekday: z.number().int().min(1).max(7), startPeriod: z.number().int().min(1).max(14), endPeriod: z.number().int().min(1).max(14) }).refine(value => value.endPeriod >= value.startPeriod, '结束节次不能早于开始节次'),
   exchanges: z.object({ date: requiredDate, fromCurrency: currency, toCurrency: currency, fromAmount: money, toAmount: money, note }).refine(value => value.fromCurrency !== value.toCurrency, '换汇币种必须不同'),
   places: z.object({ name, category: name, address: z.string().trim().max(1000), note, visited: z.boolean() }),
 };
