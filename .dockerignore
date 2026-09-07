@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.codegraph
+.env
+.env.*
+data
+tmp
+output
+ios
+.playwright-cli

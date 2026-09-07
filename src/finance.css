@@ -1,0 +1,21 @@
+.form-grid.finance-form { grid-template-columns: minmax(0, 1fr); }
+.expense-entry { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(70px, auto) 88px; gap: 12px; }
+.finance-entry-icon { width: 40px; height: 40px; border-radius: 12px; background: #f3f3ed; display: grid; place-items: center; flex-shrink: 0; }
+.finance-entry-details { min-width: 0; overflow-wrap: anywhere; }
+.finance-entry-amount { max-width: 170px; text-align: right; overflow-wrap: anywhere; }
+.finance-entry-actions { display: flex; width: 88px; flex-shrink: 0; }
+.exchange-entry { display: grid; grid-template-columns: 40px minmax(0, 1fr) 88px; gap: 12px; }
+.exchange-entry span { overflow-wrap: anywhere; }
+.finance-rate-value, .finance-converted-value { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .expense-entry { grid-template-columns: minmax(0, 1fr) 88px; gap: 5px 8px; }
+  .expense-entry .finance-entry-icon, .exchange-entry .finance-entry-icon { display: none; }
+  .expense-entry .finance-entry-details { grid-column: 1; grid-row: 1; }
+  .expense-entry .finance-entry-amount { grid-column: 1; grid-row: 2; max-width: none; text-align: left; }
+  .expense-entry .finance-entry-actions { grid-column: 2; grid-row: 1 / 3; }
+  .exchange-entry { grid-template-columns: minmax(0, 1fr) 88px; gap: 8px; }
+}
+
+.finance-chart-grid svg { overflow: visible; }
+output { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .page-description { font-size: 12px; } .shortcut strong { font-size: 12px; } .shortcut small { font-size: 10px; } .journey-metrics span { font-size: 10px; } .journey-route p { font-size: 11px; } }
