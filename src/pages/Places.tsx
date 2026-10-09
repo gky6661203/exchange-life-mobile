@@ -52,7 +52,7 @@ export default function Places({ data, refresh, notify }: ModuleProps) {
   }
 
   return <div className="page-stack">
-    <PageHeading title="探索地图" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
+    <PageHeading title="地图打卡" description="收藏想去的地方，到访后留下一次打卡。" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
     <div className="stat-grid"><Stat label="想去" value={String(data.places.length - visitedCount).padStart(2, '0')} /><Stat label="去过" value={String(visitedCount).padStart(2, '0')} /></div>
     <div className="filter-row"><div className="segmented" aria-label="地点状态">{([{ id: 'want', label: '想去', count: data.places.length - visitedCount }, { id: 'visited', label: '去过', count: visitedCount }, { id: 'all', label: '全部', count: data.places.length }] as const).map(item => <button key={item.id} className={filter === item.id ? 'active' : ''} aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setPageError(''); }}>{item.label}<span>{item.count}</span></button>)}</div></div>
     {pageError && <p className="error-message" role="alert">{pageError}</p>}
@@ -61,7 +61,7 @@ export default function Places({ data, refresh, notify }: ModuleProps) {
       <h2>{item.name}</h2>
       {item.address ? <p className="place-address"><MapPin size={14} /><span>{item.address}</span></p> : <p className="muted">尚未填写地址</p>}
       {item.note && <p className="place-note" style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item.note}</p>}
-      <div className="place-actions"><a className="button secondary" href={`https://maps.apple.com/?q=${encodeURIComponent([item.name, item.address].filter(Boolean).join(' '))}`} target="_blank" rel="noopener noreferrer" aria-label={`在 Apple 地图打开${item.name}`}><Navigation size={16} />地图</a><button className={`button ${item.visited ? 'secondary' : ''}`} disabled={pending.has(item.id)} onClick={() => void checkIn(item)}><Check size={16} />{pending.has(item.id) ? '更新中…' : item.visited ? '移回想去' : '已到访'}</button><div className="row-actions"><button className="icon-button" disabled={pending.has(item.id)} aria-label={`编辑${item.name}`} onClick={() => openEditor(item)}><Pencil size={16} /></button><button className="icon-button danger" disabled={pending.has(item.id)} aria-label={`删除${item.name}`} onClick={() => setDeleting(item)}><Trash2 size={16} /></button></div></div>
+      <div className="place-actions"><a className="button secondary" href={`https://maps.apple.com/?q=${encodeURIComponent([item.name, item.address].filter(Boolean).join(' '))}`} target="_blank" rel="noopener noreferrer" aria-label={`在 Apple 地图打开${item.name}`}><Navigation size={16} />地图</a><button className={`button ${item.visited ? 'secondary' : ''}`} disabled={pending.has(item.id)} onClick={() => void checkIn(item)}><Check size={16} />{pending.has(item.id) ? '更新中…' : item.visited ? '取消打卡' : '到访打卡'}</button><div className="row-actions"><button className="icon-button" disabled={pending.has(item.id)} aria-label={`编辑${item.name}`} onClick={() => openEditor(item)}><Pencil size={16} /></button><button className="icon-button danger" disabled={pending.has(item.id)} aria-label={`删除${item.name}`} onClick={() => setDeleting(item)}><Trash2 size={16} /></button></div></div>
     </article>)}</div>}
     {editing && <Modal title={editing === 'new' ? '收藏地点' : '编辑地点'} onClose={() => { if (!busy) setEditing(null); }}>
       <form className="form-grid module-form" onSubmit={submit}>
@@ -77,7 +77,3 @@ export default function Places({ data, refresh, notify }: ModuleProps) {
     {deleting && <ConfirmDelete onClose={() => setDeleting(null)} onConfirm={async () => { await deleteItem('places', deleting.id); await refresh(); setDeleting(null); notify('地点已删除'); }} />}
   </div>;
 }
-
-
-
-

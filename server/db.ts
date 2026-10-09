@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { AppData, Collection, Profile } from '../src/lib/types.js';
 
-export const collections: Collection[] = ['expenses', 'documents', 'checklists', 'courses', 'exchanges', 'places'];
+export const collections: Collection[] = ['expenses', 'documents', 'checklists', 'courses', 'exchanges', 'places', 'subscriptions', 'workouts', 'watchlist'];
 export const defaultProfile: Profile = {
   name: '', destination: '', school: '', departureDate: '', returnDate: '', semesterStart: '', semesterEnd: '',
   baseCurrency: 'CNY', localCurrency: 'EUR', semesterBudget: 0, monthlyBudgets: {}, studentId: '', address: '',
@@ -52,7 +52,3 @@ export class Store {
   }
   close() { this.db.close(); }
 }
-
-
-
-

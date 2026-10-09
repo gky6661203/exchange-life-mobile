@@ -7,9 +7,9 @@ import type { ChecklistGroup, ChecklistItem, ModuleProps } from '../lib/types';
 import { ConfirmDelete, EmptyState, Field, Modal, PageHeading, SubmitButton } from '../components/ui';
 
 const groups: { id: ChecklistGroup; name: string; description: string }[] = [
-  { id: 'learning', name: '学习计划', description: '课程、考试、申请、作业。' },
-  { id: 'travel', name: '旅行计划', description: '行程、订票、攻略。' },
-  { id: 'daily', name: '日常计划', description: '证件、住宿、生活琐事。' },
+  { id: 'learning', name: '学习计划', description: '课程、阅读与想学会的新东西。' },
+  { id: 'travel', name: '投资观察', description: '读公告、记观察，按自己的计划行动。' },
+  { id: 'daily', name: '每日计划', description: '训练、续费与生活里的小目标。' },
 ];
 type ChecklistDraft = Omit<ChecklistItem, 'id'>;
 const legacyGroups: Record<string, ChecklistGroup> = { preparation: 'daily', packing: 'daily', arrival: 'daily', closing: 'learning', travel: 'travel' };
@@ -17,7 +17,7 @@ const normalizeGroup = (value: string): ChecklistGroup => legacyGroups[value] ||
 const normalizeItem = (item: ChecklistItem): ChecklistItem => ({ ...item, group: normalizeGroup(item.group) });
 
 export default function Checklists({ data, refresh, notify }: ModuleProps) {
-  const [group, setGroup] = useState<ChecklistGroup>('learning');
+  const [group, setGroup] = useState<ChecklistGroup>('daily');
   const [editing, setEditing] = useState<ChecklistItem | 'new' | null>(null);
   const [draft, setDraft] = useState<ChecklistDraft>({ group, title: '', dueDate: '', done: false });
   const [deleting, setDeleting] = useState<ChecklistItem | null>(null);
@@ -70,7 +70,7 @@ export default function Checklists({ data, refresh, notify }: ModuleProps) {
   }
 
   return <div className="page-stack">
-    <PageHeading title="生活清单" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
+    <PageHeading title="每日计划" description="完成一件，划掉一件。" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
     <div className="checklist-tabs" role="tablist" aria-label="清单分类">{groups.map((item, index) => {
       const groupItems = allItems.filter(entry => entry.group === item.id);
       return <button key={item.id} id={`checklist-tab-${item.id}`} className={group === item.id ? 'active' : ''} role="tab" tabIndex={group === item.id ? 0 : -1} aria-selected={group === item.id} aria-controls="checklist-panel" onKeyDown={event => changeTab(event, index)} onClick={() => { setGroup(item.id); setPageError(''); }}><span>{item.name}</span><small>{groupItems.filter(entry => entry.done).length}/{groupItems.length}</small></button>;
@@ -100,7 +100,3 @@ export default function Checklists({ data, refresh, notify }: ModuleProps) {
     {deleting && <ConfirmDelete onClose={() => setDeleting(null)} onConfirm={async () => { await deleteItem('checklists', deleting.id); await refresh(); setDeleting(null); notify('已删除'); }} />}
   </div>;
 }
-
-
-
-

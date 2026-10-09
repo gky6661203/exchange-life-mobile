@@ -5,6 +5,7 @@ import './styles.css';
 import './modules.css';
 import './finance.css';
 import './ios.css';
+import './era.css';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: boolean }> {
   state = { error: false };
@@ -13,7 +14,3 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 }
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><App /></ErrorBoundary></React.StrictMode>);
 if (import.meta.env.PROD && 'serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
-
-
-
-

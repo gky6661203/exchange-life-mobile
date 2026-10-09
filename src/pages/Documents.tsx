@@ -121,7 +121,7 @@ export default function Documents({ data, refresh, notify }: ModuleProps) {
   const editorPhoto = previewUrl || (draft.imageId ? apiUrl(`/uploads/${encodeURIComponent(draft.imageId)}`) : '');
 
   return <div className="page-stack wallet-page">
-    <PageHeading title="证件卡包" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
+    <PageHeading title="我的卡包" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
     <div className="stat-grid">
       <Stat label="证件" value={String(data.documents.length).padStart(2, '0')} />
       <Stat label="临期" value={String(expiring.length).padStart(2, '0')} />
@@ -160,7 +160,3 @@ export default function Documents({ data, refresh, notify }: ModuleProps) {
     {deleting && <ConfirmDelete onClose={() => setDeleting(null)} onConfirm={async () => { await deleteItem('documents', deleting.id); await refresh(); setDeleting(null); notify('证件已删除'); }} />}
   </div>;
 }
-
-
-
-

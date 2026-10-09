@@ -23,6 +23,9 @@ export const uploads = sqliteTable('uploads', {
 export const rates = sqliteTable('rates', {
   base: text('base').notNull(), quote: text('quote').notNull(), date: text('date').notNull(), rate: real('rate').notNull(), fetchedAt: integer('fetched_at').notNull(),
 }, table => [primaryKey({ columns: [table.base, table.quote, table.date] })]);
+export const stockQuotes = sqliteTable('stock_quotes', {
+  symbol: text('symbol').primaryKey(), data: text('data').notNull(), fetchedAt: integer('fetched_at').notNull(),
+});
 export const rateRequests = sqliteTable('rate_requests', {
   base: text('base').notNull(), quote: text('quote').notNull(), target: text('target').notNull(), fetchedAt: integer('fetched_at').notNull(),
 }, table => [primaryKey({ columns: [table.base, table.quote, table.target] })]);

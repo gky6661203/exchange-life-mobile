@@ -14,6 +14,11 @@ const note = z.string().trim().max(5000, '最多 5000 个字符');
 const name = shortText.min(1, '请填写名称');
 const money = z.number().finite().positive('金额必须大于 0').max(1_000_000_000, '金额超出上限');
 const budget = z.number().finite().min(0).max(1_000_000_000);
+const webUrl = z.union([z.literal(''), z.string().trim().url('请输入完整网址').max(1000).refine(value => new URL(value).protocol === 'https:', '请使用 HTTPS 网址')]);
+export const watchStockSchema = z.object({ market: z.enum(['TW', 'US', 'HK', 'CN']), symbol: z.string().trim().toUpperCase().max(20), name: shortText }).superRefine((value, ctx) => {
+  const patterns = { TW: /^\d{4,6}(?:\.(?:TW|TWO))?$/, US: /^[A-Z][A-Z0-9.-]{0,9}$/, HK: /^\d{1,5}(?:\.HK)?$/, CN: /^[0-9]{6}(?:\.(?:SS|SZ))?$/ };
+  if (!patterns[value.market].test(value.symbol)) ctx.addIssue({ code: 'custom', path: ['symbol'], message: '股票代码格式不正确' });
+});
 export const passwordSchema = z.object({ password: z.string().min(12, '密码至少需要 12 个字符').max(256, '密码最多 256 个字符') });
 export const loginSchema = z.object({ password: z.string().min(1).max(256) });
 
@@ -36,13 +41,12 @@ export const schemas = {
   courses: z.object({ name, room: shortText, teacher: shortText, weekday: z.number().int().min(1).max(7), startPeriod: z.number().int().min(1).max(14), endPeriod: z.number().int().min(1).max(14) }).refine(value => value.endPeriod >= value.startPeriod, '结束节次不能早于开始节次'),
   exchanges: z.object({ date: requiredDate, fromCurrency: currency, toCurrency: currency, fromAmount: money, toAmount: money, note }).refine(value => value.fromCurrency !== value.toCurrency, '换汇币种必须不同'),
   places: z.object({ name, category: name, address: z.string().trim().max(1000), note, visited: z.boolean() }),
+  subscriptions: z.object({ name, amount: budget, currency, nextRenewal: requiredDate, billingDay: z.number().int().min(1).max(31), intervalMonths: z.union([z.literal(1), z.literal(3), z.literal(12)]), reminderDays: z.number().int().min(0).max(30), active: z.boolean(), category: z.enum(['ai', 'life', 'fitness']), url: webUrl, note }),
+  workouts: z.object({ date: requiredDate, minutes: z.number().int().min(1).max(240), note }),
+  watchlist: watchStockSchema,
 };
 
 export function todayInZone(now: number, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(now));
   return `${parts.find(part => part.type === 'year')!.value}-${parts.find(part => part.type === 'month')!.value}-${parts.find(part => part.type === 'day')!.value}`;
 }
-
-
-
-

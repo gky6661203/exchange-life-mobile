@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { DocumentItem } from '../lib/types';
 
+export type WalletCard = Pick<DocumentItem, 'id' | 'name' | 'number' | 'expiryDate'> & { label?: string; value?: string; footer?: string };
 const palette = [['#142a51', '#466dae'], ['#225950', '#6cb6a1'], ['#563961', '#b98bc8'], ['#594834', '#c4ab83']];
-function cardTexture(item: DocumentItem, index: number) {
+function cardTexture(item: WalletCard, index: number) {
   const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 640;
   const ctx = canvas.getContext('2d')!;
   const colors = palette[index % palette.length], gradient = ctx.createLinearGradient(0, 0, 1024, 640);
@@ -13,8 +14,8 @@ function cardTexture(item: DocumentItem, index: number) {
   ctx.fillStyle = gradient; ctx.fillRect(0, 0, 1024, 640);
   ctx.strokeStyle = '#ffffff12'; ctx.lineWidth = 2;
   for (let n = 0; n < 6; n++) { ctx.beginPath(); ctx.ellipse(920, 500, 190 + n * 75, 200 + n * 50, -.6, 0, Math.PI * 2); ctx.stroke(); }
-  ctx.fillStyle = '#ffffffbb'; ctx.font = '500 27px -apple-system, BlinkMacSystemFont, sans-serif'; ctx.fillText('Exchange life', 70, 85);
-  ctx.fillStyle = '#ffffff88'; ctx.textAlign = 'right'; ctx.fillText('证件卡包', 950, 85); ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffffffbb'; ctx.font = '500 27px -apple-system, BlinkMacSystemFont, sans-serif'; ctx.fillText('New Era', 70, 85);
+  ctx.fillStyle = '#ffffff88'; ctx.textAlign = 'right'; ctx.fillText(item.label || '证件卡包', 950, 85); ctx.textAlign = 'left';
   ctx.fillStyle = '#d5deee'; ctx.beginPath(); ctx.roundRect(70, 145, 85, 66, 12); ctx.fill();
   ctx.strokeStyle = '#7789a6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(98, 145); ctx.lineTo(98, 211); ctx.moveTo(127, 145); ctx.lineTo(127, 211); ctx.moveTo(70, 167); ctx.lineTo(155, 167); ctx.moveTo(70, 189); ctx.lineTo(155, 189); ctx.stroke();
   ctx.fillStyle = '#ffffff'; ctx.font = '600 52px -apple-system, BlinkMacSystemFont, sans-serif';
@@ -22,13 +23,13 @@ function cardTexture(item: DocumentItem, index: number) {
   while (ctx.measureText(title).width > 875 && title.length > 1) title = title.slice(0, -1);
   if (title !== item.name) title = title.slice(0, -1) + '…';
   ctx.fillText(title, 70, 310);
-  ctx.font = '400 37px monospace'; ctx.fillStyle = '#e1eaff'; ctx.fillText(item.number ? `••••  ${item.number.slice(-4)}` : '••••  ••••', 70, 386);
-  ctx.font = '400 22px -apple-system, BlinkMacSystemFont, sans-serif'; ctx.fillStyle = '#ffffff88'; ctx.fillText('有效期', 70, 505); ctx.fillText('我的交换生活', 720, 505);
+  ctx.font = '400 37px monospace'; ctx.fillStyle = '#e1eaff'; ctx.fillText(item.value || (item.number ? `••••  ${item.number.slice(-4)}` : '••••  ••••'), 70, 386);
+  ctx.font = '400 22px -apple-system, BlinkMacSystemFont, sans-serif'; ctx.fillStyle = '#ffffff88'; ctx.fillText(item.label === '订阅卡' ? '下次续费' : '有效期', 70, 505); ctx.fillText(item.footer || '新时代版本答案', 720, 505);
   ctx.font = '500 29px -apple-system, BlinkMacSystemFont, sans-serif'; ctx.fillStyle = '#ffffff'; ctx.fillText(item.expiryDate || '未设置', 70, 548);
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; return texture;
 }
 
-export default function WalletScene({ items, selected, onSelect }: { items: DocumentItem[]; selected: string | null; onSelect: (id: string) => void }) {
+export default function WalletScene({ items, selected, onSelect, title = '证件卡包' }: { items: WalletCard[]; selected: string | null; onSelect: (id: string) => void; title?: string }) {
   const container = useRef<HTMLDivElement>(null), selectRef = useRef(onSelect);
   const [fallback, setFallback] = useState(false);
   selectRef.current = onSelect;
@@ -106,14 +107,14 @@ export default function WalletScene({ items, selected, onSelect }: { items: Docu
       cancelAnimationFrame(frame); observer.disconnect(); intersection.disconnect(); document.removeEventListener('visibilitychange', invalidate);
       renderer.domElement.removeEventListener('pointerdown', down); renderer.domElement.removeEventListener('pointermove', move); renderer.domElement.removeEventListener('pointerup', up); renderer.domElement.removeEventListener('pointercancel', cancel);
       renderer.domElement.removeEventListener('webglcontextlost', contextLost); renderer.domElement.removeEventListener('webglcontextrestored', contextRestored);
-      textures.forEach(texture => texture.dispose()); geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose()); renderer.dispose(); renderer.domElement.remove();
+      textures.forEach(texture => texture.dispose()); geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose()); renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove();
     };
   }, [items, selectedIndex]);
   if (!items.length) return null;
   const selectedItem = items[selectedIndex];
-  return <section className="wallet-stage" aria-label="立体证件卡包">
-    <div className="wallet-stage-caption"><span><CreditCard size={17} />我的卡包</span><span>{selectedIndex + 1} / {items.length}</span></div>
+  return <section className="wallet-stage" aria-label={`立体${title}`}>
+    <div className="wallet-stage-caption"><span><CreditCard size={17} />{title}</span><span>{selectedIndex + 1} / {items.length}</span></div>
     <div className="wallet-canvas" ref={container}>{fallback && <div className="wallet-fallback"><CreditCard size={32} /><strong>{selectedItem.name}</strong><span>{selectedItem.number ? `•••• ${selectedItem.number.slice(-4)}` : '未填写号码'}</span></div>}</div>
-    <div className="wallet-controls"><button className="icon-button" disabled={items.length < 2} aria-label="上一张证件" onClick={() => onSelect(items[(selectedIndex - 1 + items.length) % items.length].id)}><ChevronLeft size={21} /></button><div><strong>{selectedItem.name}</strong><small>{fallback ? '选择卡片查看详情' : '拖动旋转 · 点选下方卡片查看'}</small></div><button className="icon-button" disabled={items.length < 2} aria-label="下一张证件" onClick={() => onSelect(items[(selectedIndex + 1) % items.length].id)}><ChevronRight size={21} /></button></div>
+    <div className="wallet-controls"><button className="icon-button" disabled={items.length < 2} aria-label="上一张卡片" onClick={() => onSelect(items[(selectedIndex - 1 + items.length) % items.length].id)}><ChevronLeft size={21} /></button><div><strong>{selectedItem.name}</strong><small>{fallback ? '选择卡片查看详情' : '拖动旋转 · 点选下方卡片查看'}</small></div><button className="icon-button" disabled={items.length < 2} aria-label="下一张卡片" onClick={() => onSelect(items[(selectedIndex + 1) % items.length].id)}><ChevronRight size={21} /></button></div>
   </section>;
 }

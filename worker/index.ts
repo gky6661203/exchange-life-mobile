@@ -3,7 +3,9 @@ import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import type { AppData, Collection, Course, DocumentItem, Profile, RateResult } from '../src/lib/types';
-import { currency, isDate, profileSchema, schemas, todayInZone } from '../server/validation';
+import { currency, isDate, profileSchema, schemas, todayInZone, watchStockSchema } from '../server/validation';
+import { stockQuote } from './stocks';
+import { nextBillingDate } from '../src/lib/lifestyle';
 import { mountAccounts, type AccountVariables, type AccountBindings } from './accounts';
 
 export interface Env extends AccountBindings {
@@ -13,12 +15,12 @@ export interface Env extends AccountBindings {
 }
 type Variables = AccountVariables;
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
-const collections: Collection[] = ['expenses', 'documents', 'checklists', 'courses', 'exchanges', 'places'];
+const collections: Collection[] = ['expenses', 'documents', 'checklists', 'courses', 'exchanges', 'places', 'subscriptions', 'workouts', 'watchlist'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DAY = 86_400_000;
 const defaultProfile: Profile = {
   name: '', destination: '', school: '', departureDate: '', returnDate: '', semesterStart: '', semesterEnd: '',
-  baseCurrency: 'CNY', localCurrency: 'EUR', semesterBudget: 0, monthlyBudgets: {}, studentId: '', address: '', timeZone: 'Asia/Shanghai',
+  baseCurrency: 'TWD', localCurrency: 'TWD', semesterBudget: 0, monthlyBudgets: {}, studentId: '', address: '', timeZone: 'Asia/Taipei',
 };
 
 function fail(status: 400 | 401 | 403 | 404 | 409 | 413 | 503, message: string): never {
@@ -113,6 +115,23 @@ app.get('/api/data', async c => {
   const values = await Promise.all(collections.map(collection => list(c.env, owner, collection)));
   return c.json({ profile: await profile(c.env, owner), ...Object.fromEntries(collections.map((collection, index) => [collection, values[index]])) } as AppData);
 });
+app.get('/api/stocks/quote', async c => {
+  const input = watchStockSchema.safeParse({ market: c.req.query('market') || 'TW', symbol: c.req.query('symbol'), name: '' });
+  if (!input.success) fail(400, '请输入有效的市场和股票代码');
+  try { return c.json(await stockQuote(c.env.DB, input.data.market, input.data.symbol)); }
+  catch { fail(503, '暂时无法取得行情，请稍后刷新或查看原始行情页面'); }
+});
+app.post('/api/subscriptions/:id/renew', async c => {
+  const id = idParam(c.req.param('id')), owner = c.get('owner');
+  const row = await one<import('../src/lib/types').Subscription>(c.env, owner, 'subscriptions', id);
+  if (!row) fail(404, '找不到此订阅');
+  const input = await readJson(c, z.object({ nextRenewal: z.string() }));
+  if (input.nextRenewal !== row.nextRenewal) fail(409, '续费日期已更新，请刷新后再试');
+  const updated = { ...row, nextRenewal: nextBillingDate(row.nextRenewal, row.billingDay, row.intervalMonths) };
+  const result = await c.env.DB.prepare("UPDATE items SET data=?,updated_at=? WHERE owner=? AND collection='subscriptions' AND id=? AND data=?").bind(JSON.stringify(updated), Date.now(), owner, id, JSON.stringify(row)).run();
+  if (!result.meta.changes) fail(409, '订阅已更新，请刷新后再试');
+  return c.json(updated);
+});
 app.put('/api/profile', async c => {
   const owner = c.get('owner'), value = await readJson(c, profileSchema), current = await profile(c.env, owner);
   if (value.baseCurrency !== current.baseCurrency) {
@@ -155,11 +174,20 @@ app.get('/api/export', async c => {
 
 async function saveItem(c: any) {
   const collection = collectionParam(c.req.param('collection')), owner = c.get('owner');
-  const id = c.req.method === 'PUT' ? idParam(c.req.param('id')) : crypto.randomUUID();
+  let id = c.req.method === 'PUT' ? idParam(c.req.param('id')) : crypto.randomUUID();
   const previous = c.req.method === 'PUT' ? await one<any>(c.env, owner, collection, id) : null;
   if (c.req.method === 'PUT' && !previous) fail(404, '找不到此項目');
   const value: any = await readJson(c, schemas[collection] as z.ZodType<any>), item: any = { ...value, id };
   const p = await profile(c.env, owner);
+  if (collection === 'workouts') {
+    if (item.date > today(p)) fail(400, '未来的日期不能提前打卡');
+    if (previous && item.date !== previous.date) fail(409, '请在对应日期重新打卡');
+    if (c.req.method === 'POST') {
+      const hash = await ownerKey(`${owner}:workout:${item.date}`);
+      id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+      item.id = id;
+    }
+  }
   if (collection === 'expenses') {
     if (item.date > today(p)) fail(400, '支出日期不能晚于今天');
     const result = await rates(c.env, owner, item.currency, p.baseCurrency, item.date); if (result.stale) fail(503, '目前只能取得过期汇率，请稍后再保存这笔支出');
@@ -196,7 +224,3 @@ app.notFound(c => c.env.ASSETS.fetch(c.req.raw));
 app.onError((error, c) => error instanceof HTTPException ? c.json({ error: error.message }, error.status) : (console.error('[exchange-life]', error instanceof Error ? error.name : 'UnknownError'), c.json({ error: '服务器暂时无法完成操作，请稍后再试' }, 500)));
 
 export default app;
-
-
-
-
