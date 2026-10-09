@@ -4,6 +4,7 @@ import App from './App';
 import './styles.css';
 import './modules.css';
 import './finance.css';
+import './ios.css';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: boolean }> {
   state = { error: false };

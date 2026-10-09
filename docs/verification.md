@@ -32,3 +32,13 @@
 6. 重新啟動部署服務，確認原有資料保留，再驗證資料庫備份可還原至獨立測試環境。
 
 以上步驟中的實體 iPhone、第二台裝置與備份還原仍待驗收；瀏覽器手機尺寸和本機 Sites Worker 流程已完成。
+
+## 2026-10-09: accounts, iOS interface and Three.js wallet
+
+- Added site-owned Email/password registration and login; shared password entry is removed from the active interface and API.
+- Account security tests pass: normalized duplicate Email, salted password hashes, hashed Secure/HttpOnly sessions, logout/expiry, CSRF, failed-login limiting, and cross-account record/photo/export isolation.
+- Confirmed registration (201), authenticated status, logout (204) and login (200) in the local Cloudflare workerd runtime using the deployment build and D1 migrations.
+- Browser QA at 390×844 and 1440×1000: registration, wrong-password error, correct login, logout, Three.js canvas rendering, next-card selection and pointer rotation. No horizontal overflow on the mobile wallet.
+- Card canvas pauses offscreen, respects reduced motion, caps device pixel ratio and disposes GPU resources. Accessible HTML card controls remain available without WebGL.
+- Legacy Sites Email-owned records remain unchanged; an Email registration alone cannot claim them. Linking requires matching trusted Sites identity. The self-hosted account API uses a separate accounts.sqlite by default.
+- Email verification and email password recovery are not provided. Physical iPhone/Safari and native Capacitor testing remain unverified.

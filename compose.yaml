@@ -4,9 +4,8 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      APP_PASSWORD: ${APP_PASSWORD:?Set APP_PASSWORD in .env (at least 12 characters)}
       APP_ORIGIN: ${APP_ORIGIN:?Set the public HTTPS origin in .env}
-      DATABASE_PATH: /app/data/exchange-life.sqlite
+      DATABASE_PATH: /app/data/accounts.sqlite
     ports:
       - "127.0.0.1:3001:3001"
     volumes:

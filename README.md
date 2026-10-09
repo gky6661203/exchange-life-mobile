@@ -8,7 +8,7 @@
 | --- | --- |
 | 生活總覽 | 交換進度、近期課程、待辦事項與花費摘要 |
 | 記帳預算 | 花費紀錄、分類、預算與歷史匯率換算 |
-| 證件夾 | 證件資訊、到期日、圖片上傳與查看 |
+| 證件夾 | Three.js 立體卡包、拖曳旋轉、證件到期日與圖片 |
 | 生活清單 | 整理行前與日常待辦、標記完成狀態 |
 | 我的課表 | 課程、上課時間與地點管理 |
 | 匯率換算 | 參考匯率、近期走勢與換匯紀錄 |
@@ -30,19 +30,19 @@ npm ci
 npm run dev
 ```
 
-在這台電腦開啟 [http://localhost:5173](http://localhost:5173)，設定 12–256 個字元的私人密碼，再到「個人設定」填入姓名、學校、交換日期、時區、基準幣別及預算。預設不提供任何個人示範資料。
+在這台電腦開啟 [http://localhost:5173](http://localhost:5173)，註冊 Email＋密碼帳號（密碼至少 12 個字元），再到「個人設定」填入姓名、學校、交換日期、時區、基準幣別及預算。預設不提供任何個人示範資料。
 
-這是單人私人帳號，登入最長保持 30 天。首次密碼設定僅開放本機 localhost；也可預先在 `.env` 設定 `APP_PASSWORD`。已有花費紀錄後不能直接更換基準幣別，以免統計混用不同貨幣。
+每個帳號都有獨立的資料與卡包，登入最長保持 30 天。密碼以加鹽 scrypt 雜湊保存；目前沒有 Email 驗證或郵件找回密碼，請妥善保存密碼。已有花費紀錄後不能直接更換基準幣別，以免統計混用不同貨幣。
 
-開發伺服器已監聽區域網路。先在電腦完成密碼設定，再讓 iPhone 與電腦連上相同 Wi-Fi，以 `http://電腦的區域網路IP:5173` 預覽；Windows 防火牆需允許 Node.js 接受私人網路連線。區域網路 HTTP 僅供開發預覽，安裝 PWA 和正式使用請使用 HTTPS 網址。
+開發伺服器已監聽區域網路。先在電腦完成帳號註冊，再讓 iPhone 與電腦連上相同 Wi-Fi，以 `http://電腦的區域網路IP:5173` 預覽；Windows 防火牆需允許 Node.js 接受私人網路連線。區域網路 HTTP 僅供開發預覽，安裝 PWA 和正式使用請使用 HTTPS 網址。
 
 ## 在 iPhone 使用
 
 ### Safari 加入主畫面
 
-Sites 版本部署於 [交換生活](https://exchange-life-mobile-32328.gky666.chatgpt.site)。在 iPhone Safari 登入網站後，點「分享」→「加入主畫面」，即可從主畫面開啟手帳。網站目前為擁有者私人存取，請使用建立此網站的 OpenAI 帳戶登入。
+Sites 版本部署於 [交換生活](https://exchange-life-mobile-32328.gky666.chatgpt.site)。在 iPhone Safari 登入網站後，點「分享」→「加入主畫面」，即可從主畫面開啟手帳。網站公開提供登入與註冊入口；請使用網站自己的 Email＋密碼帳號登入。
 
-多裝置使用同一網站與私人密碼，資料儲存在伺服器並同步；網頁會在回到前景或定期檢查時更新資料，也可點擊同步按鈕。此版本需要網路連線儲存和載入資料，不會把私人紀錄或證件圖片存入離線快取。
+多裝置使用同一網站與 Email 帳號，資料儲存在伺服器並同步；網頁會在回到前景或定期檢查時更新資料，也可點擊同步按鈕。此版本需要網路連線儲存和載入資料，不會把私人紀錄或證件圖片存入離線快取。
 
 ### Capacitor 個人 iOS 容器
 
@@ -70,7 +70,6 @@ Sites 版本部署於 [交換生活](https://exchange-life-mobile-32328.gky666.c
 使用 Docker Compose 時，在 `.env` 填入：
 
 ```dotenv
-APP_PASSWORD=請替換為自己的至少12字元強密碼
 APP_ORIGIN=https://你的網站網域
 ```
 
@@ -82,13 +81,15 @@ docker compose up -d --build
 
 應用程式在主機 `127.0.0.1:3001` 提供網頁與 API。由 HTTPS 反向代理轉送到此位址，公開網址需與 `APP_ORIGIN` 一致。Compose 使用 `exchange-data` volume 保存資料庫，請保留此 volume；`docker compose down -v` 會刪除資料。
 
-也可在 Node.js 24 伺服器設定 `NODE_ENV=production`、`APP_PASSWORD`、`APP_ORIGIN` 和持久化的 `DATABASE_PATH`，再執行 `npm ci`、`npm run build`、`npm start`。生產模式會同時提供 `dist/` 網頁與 `/api`。
+也可在 Node.js 24 伺服器設定 `NODE_ENV=production`、`APP_ORIGIN` 和持久化的 `DATABASE_PATH`，再執行 `npm ci`、`npm run build`、`npm start`。生產模式會同時提供 `dist/` 網頁與 `/api`。
 
-資料庫採用 **SQLite**，是針對單人服務對需求文件中 MySQL 建議的實作調整。部署只運行一個應用實例，資料目錄必須持久保存，不適用臨時檔案系統或各自使用不同資料庫的多副本部署。圖片也保存在資料庫中。日常可從設定匯出 JSON；完整可還原備份請使用 SQLite 線上備份功能，或停止服務後一起備份資料庫及其 WAL／SHM 檔案。
+資料庫採用 **SQLite**，自行架設版本使用 `data/accounts.sqlite` 保存多帳號資料；舊版單人資料庫不會被覆寫。部署只運行一個應用實例，資料目錄必須持久保存，不適用臨時檔案系統或各自使用不同資料庫的多副本部署。圖片也保存在資料庫中。日常可從設定匯出 JSON；完整可還原備份請使用 SQLite 線上備份功能，或停止服務後一起備份資料庫及其 WAL／SHM 檔案。
 
 匯率來源為 [Frankfurter](https://frankfurter.dev/) 的參考匯率，可能使用最近一個交易日的資料；跨幣別記帳使用支出日期的歷史匯率，服務不可用或資料過舊時會阻止儲存，避免把不確定換算計入總額。
 
 ## 開發與驗證
+
+介面採用 iOS 風格的大標題、分組列表、底部導覽與彈出表單；卡包採用 Three.js，無 WebGL 時提供可操作的備用顯示。
 
 技術組合：React 19、TypeScript、Vite、Tailwind CSS、Hono、Node.js 24、SQLite、Capacitor 8。
 

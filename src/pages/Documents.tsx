@@ -5,6 +5,7 @@ import { api, apiUrl, deleteItem, saveItem } from '../lib/api';
 import { daysUntil, shortDate, today } from '../lib/format';
 import type { DocumentItem, ModuleProps } from '../lib/types';
 import { ConfirmDelete, EmptyState, Field, Modal, PageHeading, Stat, SubmitButton } from '../components/ui';
+import WalletScene from '../components/WalletScene';
 
 type DocumentDraft = Omit<DocumentItem, 'id'>;
 const emptyDraft = (): DocumentDraft => ({ name: '', number: '', expiryDate: '', note: '' });
@@ -35,7 +36,7 @@ async function normalizeImage(file: File): Promise<Blob> {
 }
 
 export default function Documents({ data, refresh, notify }: ModuleProps) {
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(data.documents[0]?.id || null);
   const [editing, setEditing] = useState<DocumentItem | 'new' | null>(null);
   const [draft, setDraft] = useState<DocumentDraft>(emptyDraft);
   const [deleting, setDeleting] = useState<DocumentItem | null>(null);
@@ -119,14 +120,14 @@ export default function Documents({ data, refresh, notify }: ModuleProps) {
 
   const editorPhoto = previewUrl || (draft.imageId ? apiUrl(`/uploads/${encodeURIComponent(draft.imageId)}`) : '');
 
-  return <div className="page-stack">
+  return <div className="page-stack wallet-page">
     <PageHeading title="证件卡包" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
     <div className="stat-grid">
       <Stat label="证件" value={String(data.documents.length).padStart(2, '0')} />
       <Stat label="临期" value={String(expiring.length).padStart(2, '0')} />
     </div>
     {data.documents.length === 0 ? <EmptyState icon={ShieldCheck} title="暂无证件" description="添加护照、签证或学生证。" action={<button className="button secondary" onClick={() => openEditor()}><Plus size={17} />添加</button>} /> :
-      <div className="document-wallet">{data.documents.map((item, index) => <article className={`document-card document-card-${index % 4}`} style={{ '--card-index': index } as CSSProperties} key={item.id}>
+      <><WalletScene items={data.documents} selected={expanded} onSelect={setExpanded} /><div className="document-wallet">{data.documents.map((item, index) => <article className={`document-card document-card-${index % 4} ${expanded === item.id ? 'selected' : ''}`} style={{ '--card-index': index } as CSSProperties} key={item.id}>
         <button className="document-card-top" onClick={() => setExpanded(expanded === item.id ? null : item.id)} aria-expanded={expanded === item.id} aria-controls={`document-${item.id}`}>
           <div className="document-card-heading"><CreditCard size={25} /><span>卡片 {String(index + 1).padStart(2, '0')}</span><ChevronDown size={18} style={{ transform: expanded === item.id ? 'rotate(180deg)' : undefined }} /></div>
           <h2>{item.name}</h2>
@@ -140,7 +141,7 @@ export default function Documents({ data, refresh, notify }: ModuleProps) {
           {item.imageId ? <button className="document-photo" onClick={() => setPhoto(item)} aria-label={`放大${item.name}照片`}><img src={apiUrl(`/uploads/${encodeURIComponent(item.imageId)}`)} alt={`${item.name}照片`} loading="lazy" /><span><Eye size={16} />查看照片</span></button> : <div className="document-photo-placeholder"><FileImage size={24} /><span>未加照片</span></div>}
           <div className="row-actions"><button className="button secondary" onClick={() => openEditor(item)}><Pencil size={15} />编辑</button><button className="icon-button danger" aria-label={`删除${item.name}`} onClick={() => setDeleting(item)}><Trash2 size={17} /></button></div>
         </div>}
-      </article>)}</div>}
+      </article>)}</div></>}
     {editing && <Modal title={editing === 'new' ? '新增证件' : '编辑证件'} onClose={closeEditor}>
       <form className="form-grid module-form" onSubmit={submit}>
         <Field label="证件名称"><input autoFocus required maxLength={100} value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} placeholder="例如：护照" /></Field>

@@ -6,5 +6,5 @@
     "resolveJsonModule": true, "isolatedModules": true, "noEmit": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "server", "tests", "vite.config.ts", "capacitor.config.ts"]
+  "include": ["src", "server", "worker", "tests", "vite.config.ts", "capacitor.config.ts"]
 }

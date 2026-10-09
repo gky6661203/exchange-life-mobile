@@ -1,15 +1,17 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import type { D1Database, R2Bucket } from '@cloudflare/workers-types';
 import type { AppData, Collection, Course, DocumentItem, Profile, RateResult } from '../src/lib/types';
 import { currency, isDate, profileSchema, schemas, todayInZone } from '../server/validation';
+import { mountAccounts, type AccountVariables, type AccountBindings } from './accounts';
 
-interface Env {
-  ASSETS: Fetcher;
+export interface Env extends AccountBindings {
+  ASSETS: { fetch: (request: Request) => Promise<Response> };
   DB: D1Database;
   UPLOADS: R2Bucket;
 }
-type Variables = { owner: string };
+type Variables = AccountVariables;
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 const collections: Collection[] = ['expenses', 'documents', 'checklists', 'courses', 'exchanges', 'places'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -31,13 +33,11 @@ async function readJson<T>(c: Parameters<typeof app.fetch>[0] extends never ? ne
   if (new TextEncoder().encode(text).byteLength > 128 * 1024) fail(413, '资料内容过大');
   try { return schema.parse(JSON.parse(text)); } catch (error) { fail(400, jsonError(error)); }
 }
-function ownerFromRequest(request: Request): string | null {
-  return request.headers.get('oai-authenticated-user-email')?.trim().toLowerCase() ||
-    (new URL(request.url).hostname === 'localhost' ? request.headers.get('x-exchange-local-user')?.trim().toLowerCase() || 'local@exchange.life' : null) || null;
-}
 async function profile(env: Env, owner: string): Promise<Profile> {
   const row = await env.DB.prepare('SELECT data FROM profiles WHERE owner=?').bind(owner).first<{ data: string }>();
-  return row ? { ...defaultProfile, ...JSON.parse(row.data) } : { ...defaultProfile };
+  if (row) return { ...defaultProfile, ...JSON.parse(row.data) };
+  const account = await env.DB.prepare('SELECT name FROM accounts WHERE data_owner=?').bind(owner).first<{ name: string }>();
+  return { ...defaultProfile, name: account?.name || '' };
 }
 async function list<T>(env: Env, owner: string, collection: Collection): Promise<T[]> {
   const result = await env.DB.prepare('SELECT data FROM items WHERE owner=? AND collection=? ORDER BY created_at,id').bind(owner, collection).all<{ data: string }>();
@@ -87,7 +87,7 @@ async function rates(env: Env, owner: string, base: string, quote: string, reque
       url.search = new URLSearchParams({ base, quotes: quote, from, to: target }).toString();
       const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(12_000) });
       if (!response.ok) throw new Error('provider');
-      const data = await response.json<unknown>();
+      const data = await response.json();
       if (!Array.isArray(data) || !data.length || data.length > 1000) throw new Error('provider');
       const valid = data.filter((row): row is { base: string; quote: string; date: string; rate: number } => !!row && typeof row === 'object' && (row as any).base === base && (row as any).quote === quote && isDate((row as any).date) && (row as any).date >= from && (row as any).date <= target && Number.isFinite((row as any).rate) && (row as any).rate > 0);
       if (!valid.length) throw new Error('provider');
@@ -107,16 +107,7 @@ app.use('*', async (c, next) => {
   c.header('X-Content-Type-Options', 'nosniff'); c.header('Referrer-Policy', 'same-origin');
   c.header('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
 });
-app.get('/api/auth/status', c => c.json({ authenticated: !!ownerFromRequest(c.req.raw), configured: true, setupAllowed: false }));
-app.post('/api/auth/login', c => c.json({ error: '此版本使用 Sites 账户保护，请重新打开网站登录' }, 401));
-app.post('/api/auth/logout', () => fail(409, '此网站由 Sites 账户保护，请关闭页面以结束使用'));
-app.use('/api/*', async (c, next) => {
-  c.header('Cache-Control', 'no-store');
-  const owner = ownerFromRequest(c.req.raw); if (!owner) fail(401, '请先登录 Sites 以存取私人资料');
-  c.set('owner', owner);
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(c.req.method) && c.req.header('X-Requested-With') !== 'ExchangeLife') fail(403, '请透过应用操作');
-  await next();
-});
+mountAccounts(app);
 app.get('/api/data', async c => {
   const owner = c.get('owner');
   const values = await Promise.all(collections.map(collection => list(c.env, owner, collection)));
@@ -153,7 +144,7 @@ app.get('/api/uploads/:id', async c => {
   const meta = await c.env.DB.prepare('SELECT mime FROM uploads WHERE owner=? AND id=?').bind(owner, id).first<{ mime: string }>();
   if (!meta) fail(404, '找不到图片');
   const object = await c.env.UPLOADS.get(`${await ownerKey(owner)}/${id}`); if (!object) fail(404, '找不到图片');
-  return new Response(object.body, { headers: { 'Content-Type': meta.mime, 'Cache-Control': 'no-store', 'Content-Disposition': 'inline', 'X-Content-Type-Options': 'nosniff' } });
+  return new Response(object.body as unknown as ReadableStream, { headers: { 'Content-Type': meta.mime, 'Cache-Control': 'no-store', 'Content-Disposition': 'inline', 'X-Content-Type-Options': 'nosniff' } });
 });
 app.get('/api/export', async c => {
   const owner = c.get('owner'), values = await Promise.all(collections.map(collection => list(c.env, owner, collection)));
@@ -183,7 +174,7 @@ async function saveItem(c: any) {
     if (courses.some(course => course.id !== id && course.weekday === item.weekday && course.startPeriod <= item.endPeriod && course.endPeriod >= item.startPeriod)) fail(409, '这个时段已有课程，请调整星期或节次');
   }
   const now = Date.now();
-  await c.env.DB.prepare('INSERT INTO items(owner,collection,id,data,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(owner,collection,id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(owner, collection, id, JSON.stringify(item), previous ? (await c.env.DB.prepare('SELECT created_at FROM items WHERE owner=? AND collection=? AND id=?').bind(owner, collection, id).first<{ created_at: number }>())?.created_at || now : now, now).run();
+  await c.env.DB.prepare('INSERT INTO items(owner,collection,id,data,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(owner,collection,id) DO UPDATE SET data=excluded.data,updated_at=excluded.updated_at').bind(owner, collection, id, JSON.stringify(item), previous ? (await c.env.DB.prepare('SELECT created_at FROM items WHERE owner=? AND collection=? AND id=?').bind(owner, collection, id).first())?.created_at || now : now, now).run();
   if (collection === 'documents' && previous?.imageId && previous.imageId !== item.imageId) await removeUpload(c.env, owner, previous.imageId);
   return c.json(item, c.req.method === 'POST' ? 201 : 200);
 }
