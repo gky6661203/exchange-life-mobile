@@ -70,7 +70,7 @@ export default function Checklists({ data, refresh, notify }: ModuleProps) {
   }
 
   return <div className="page-stack">
-    <PageHeading title="每日计划" description="完成一件，划掉一件。" action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
+    <PageHeading title="每日计划"  action={<button className="button" onClick={() => openEditor()}><Plus size={17} />新增</button>} />
     <div className="checklist-tabs" role="tablist" aria-label="清单分类">{groups.map((item, index) => {
       const groupItems = allItems.filter(entry => entry.group === item.id);
       return <button key={item.id} id={`checklist-tab-${item.id}`} className={group === item.id ? 'active' : ''} role="tab" tabIndex={group === item.id ? 0 : -1} aria-selected={group === item.id} aria-controls="checklist-panel" onKeyDown={event => changeTab(event, index)} onClick={() => { setGroup(item.id); setPageError(''); }}><span>{item.name}</span><small>{groupItems.filter(entry => entry.done).length}/{groupItems.length}</small></button>;

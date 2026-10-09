@@ -10,6 +10,8 @@ const rateNumber = (value: number) => new Intl.NumberFormat('zh-CN', { maximumFr
 
 export default function Exchange({ data, refresh, notify }: ModuleProps) {
   const { profile, exchanges } = data;
+  const [baseCurrency, setBaseCurrency] = useState(profile.localCurrency === profile.baseCurrency ? (profile.baseCurrency === 'USD' ? 'TWD' : 'USD') : profile.localCurrency);
+  const [quoteCurrency, setQuoteCurrency] = useState(profile.baseCurrency);
   const [rates, setRates] = useState<RateResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [rateError, setRateError] = useState('');
@@ -27,16 +29,16 @@ export default function Exchange({ data, refresh, notify }: ModuleProps) {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setRateError(''); setRates(null);
-    api<RateResult>(`/rates?base=${encodeURIComponent(profile.localCurrency)}&quote=${encodeURIComponent(profile.baseCurrency)}`, { signal: controller.signal })
+    api<RateResult>(`/rates?base=${encodeURIComponent(baseCurrency)}&quote=${encodeURIComponent(quoteCurrency)}`, { signal: controller.signal })
       .then(result => { if (!controller.signal.aborted) setRates(result); })
       .catch(error => { if (!controller.signal.aborted) setRateError(messageOf(error)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [profile.localCurrency, profile.baseCurrency, retry]);
-  const fromCurrency = reversed ? profile.baseCurrency : profile.localCurrency;
-  const toCurrency = reversed ? profile.localCurrency : profile.baseCurrency;
+  }, [baseCurrency, quoteCurrency, retry]);
+  const fromCurrency = reversed ? quoteCurrency : baseCurrency;
+  const toCurrency = reversed ? baseCurrency : quoteCurrency;
   const converted = rates && amount !== '' ? Number(amount) * (reversed ? 1 / rates.rate : rates.rate) : null;
-  const samePair = exchanges.filter(item => item.fromCurrency === profile.baseCurrency && item.toCurrency === profile.localCurrency);
+  const samePair = exchanges.filter(item => item.fromCurrency === quoteCurrency && item.toCurrency === baseCurrency);
   const paid = samePair.reduce((sum, item) => sum + item.fromAmount, 0);
   const received = samePair.reduce((sum, item) => sum + item.toAmount, 0);
   const weightedRate = received > 0 ? paid / received : null;
@@ -52,23 +54,24 @@ export default function Exchange({ data, refresh, notify }: ModuleProps) {
   }
 
   return <div className="page-stack">
-    <PageHeading title="汇率与换汇" action={<button className="button" onClick={() => setEditing('new')}><Plus size={17} />新增</button>} />
+    <PageHeading title="汇率换算" action={<button className="button" onClick={() => setEditing('new')}><Plus size={17} />换汇</button>} />
+    <div className="currency-pair"><Field label="外币"><select value={baseCurrency} onChange={event => { setBaseCurrency(event.target.value); setReversed(false); setAmount(''); }}>{currencies.map(code => <option key={code}>{code}</option>)}</select></Field><Field label="换算币种"><select value={quoteCurrency} onChange={event => { setQuoteCurrency(event.target.value); setReversed(false); setAmount(''); }}>{currencies.map(code => <option key={code}>{code}</option>)}</select></Field></div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 310px), 1fr))', gap: 20 }}>
       <section className="panel"><div className="panel-header"><h2>货币换算</h2><button className="icon-button" aria-label="更新汇率" disabled={loading} onClick={() => setRetry(value => value + 1)}><RefreshCw size={15} className={loading ? 'spin' : ''} /></button></div>
-        <div style={{ padding: '6px 0 20px' }}><div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>1 {profile.localCurrency}</div><div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}><strong style={{ fontSize: 39, fontWeight: 500, letterSpacing: '-1.5px' }}>{loading ? '…' : rates ? rateNumber(rates.rate) : '—'}</strong><span className="muted">{profile.baseCurrency}</span></div><div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{rates ? `${shortDate(rates.date)}${rates.stale ? ' · 缓存' : ''}` : loading ? '获取中…' : '暂无汇率'}</div></div>
-        <Field label={`持有金额 · ${fromCurrency}`}><div style={{ position: 'relative' }}><input type="number" inputMode="decimal" min="0" step="any" max="1000000000" value={amount} placeholder="输入金额" onChange={event => setAmount(event.target.value)} style={{ width: '100%', paddingRight: 68 }} /><span className="muted" style={{ position: 'absolute', right: 15, top: '50%', transform: 'translateY(-50%)', fontSize: 12 }}>{fromCurrency}</span></div></Field>
+        <div style={{ padding: '6px 0 20px' }}><div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>1 {baseCurrency}</div><div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}><strong style={{ fontSize: 39, fontWeight: 500, letterSpacing: '-1.5px' }}>{loading ? '…' : rates ? rateNumber(rates.rate) : '—'}</strong><span className="muted">{quoteCurrency}</span></div><div className="muted" style={{ fontSize: 11, marginTop: 8 }}>{rates ? `${shortDate(rates.date)}${rates.stale ? ' · 缓存' : ''}` : loading ? '获取中…' : '暂无汇率'}</div></div>
+        <Field label={`持有金额 · ${fromCurrency}`}><div style={{ position: 'relative' }}><input type="number" inputMode="decimal" min="0" step="any" max="1000000000" value={amount} aria-label={`持有金额 · ${fromCurrency}`} placeholder="输入金额" onChange={event => setAmount(event.target.value)} style={{ width: '100%', paddingRight: 68 }} /><span className="muted" style={{ position: 'absolute', right: 15, top: '50%', transform: 'translateY(-50%)', fontSize: 12 }}>{fromCurrency}</span></div></Field>
         <div style={{ display: 'flex', justifyContent: 'center', margin: '7px 0' }}><button className="icon-button" aria-label={`切换为 ${toCurrency} 换算 ${fromCurrency}`} onClick={swap}><ArrowDownUp size={17} /></button></div>
         <div style={{ background: '#f4f4ee', borderRadius: 12, padding: '17px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}><output aria-live="polite" aria-label="换算结果" style={{ fontSize: 24, fontWeight: 500 }}>{converted !== null && Number.isFinite(converted) && converted >= 0 ? new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(converted) : '—'}</output><span className="muted" style={{ fontSize: 12 }}>{toCurrency}</span></div>
         {rateError && <p className="error-message" role="status" style={{ fontSize: 12 }}>{rateError}</p>}
       </section>
-      <section className="panel"><div className="panel-header"><h2>近 30 天汇率</h2><span className="muted" style={{ fontSize: 11 }}>{profile.localCurrency} / {profile.baseCurrency}</span></div>
-        {history.length >= 2 ? <><div style={{ paddingTop: 10 }}><span style={{ fontSize: 26, letterSpacing: '-0.8px' }}>{rateNumber(lastRate!)}</span><span className="muted" style={{ fontSize: 11, marginLeft: 12 }}>{change! > 0 ? '+' : ''}{change!.toFixed(2)}% · 30 天</span></div><RateChart points={history} currency={profile.baseCurrency} /></> : <EmptyState icon={ChartNoAxesCombined} title={loading ? '加载中' : '暂无报价'} />}
+      <section className="panel"><div className="panel-header"><h2>近 30 天汇率</h2><span className="muted" style={{ fontSize: 11 }}>{baseCurrency} / {quoteCurrency}</span></div>
+        {history.length >= 2 ? <><div style={{ paddingTop: 10 }}><span style={{ fontSize: 26, letterSpacing: '-0.8px' }}>{rateNumber(lastRate!)}</span><span className="muted" style={{ fontSize: 11, marginLeft: 12 }}>{change! > 0 ? '+' : ''}{change!.toFixed(2)}% · 30 天</span></div><RateChart points={history} currency={quoteCurrency} /></> : <EmptyState icon={ChartNoAxesCombined} title={loading ? '加载中' : '暂无报价'} />}
       </section>
     </div>
     <div className="stat-grid">
-      <div className="stat-card"><span className="muted">累计换入 · {profile.localCurrency}</span><strong>{money(received, profile.localCurrency)}</strong><span className="muted">{samePair.length} 笔 {profile.baseCurrency} → {profile.localCurrency}</span></div>
-      <div className="stat-card"><span className="muted">累计投入 · {profile.baseCurrency}</span><strong>{money(paid, profile.baseCurrency)}</strong><span className="muted">依实际支付金额计算</span></div>
-      <div className="stat-card"><span className="muted">加权平均换汇成本</span><strong>{weightedRate !== null ? rateNumber(weightedRate) : '—'}</strong><span className="muted">{weightedRate !== null ? `1 ${profile.localCurrency} = ${rateNumber(weightedRate)} ${profile.baseCurrency}` : '记下第一笔换汇后开始计算'}</span></div>
+      <div className="stat-card"><span className="muted">累计换入 · {baseCurrency}</span><strong>{money(received, baseCurrency)}</strong><span className="muted">{samePair.length} 笔 {quoteCurrency} → {baseCurrency}</span></div>
+      <div className="stat-card"><span className="muted">累计投入 · {quoteCurrency}</span><strong>{money(paid, quoteCurrency)}</strong><span className="muted">依实际支付金额计算</span></div>
+      <div className="stat-card"><span className="muted">加权平均换汇成本</span><strong>{weightedRate !== null ? rateNumber(weightedRate) : '—'}</strong><span className="muted">{weightedRate !== null ? `1 ${baseCurrency} = ${rateNumber(weightedRate)} ${quoteCurrency}` : '记下第一笔换汇后开始计算'}</span></div>
     </div>
     <section className="panel"><div className="panel-header"><h2>换汇记录 <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}> / {exchanges.length}</span></h2><Banknote size={18} className="muted" /></div>
       {sortedRecords.length ? <div>{sortedRecords.map(item => <div key={item.id} className="list-row" style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: '#f3f3ed' }}><ArrowUpRight size={17} /></div><div style={{ flex: 1, minWidth: 0 }}><div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 550 }}><span>{money(item.fromAmount, item.fromCurrency)}</span><ArrowRight size={12} className="muted" /><span>{money(item.toAmount, item.toCurrency)}</span></div><div className="muted" style={{ fontSize: 11, marginTop: 5, overflowWrap: 'anywhere' }}>{shortDate(item.date)}{item.note ? ` · ${item.note}` : ''}</div><div className="muted" style={{ fontSize: 10, marginTop: 4 }}>1 {item.toCurrency} = {rateNumber(item.fromAmount / item.toAmount)} {item.fromCurrency}</div></div><button className="icon-button" aria-label={`编辑 ${shortDate(item.date)} 换汇记录`} onClick={() => setEditing(item)}><Pencil size={15} /></button><button className="icon-button" aria-label={`删除 ${shortDate(item.date)} 换汇记录`} onClick={() => setDeleting(item)}><Trash2 size={15} /></button></div>)}</div> : <EmptyState icon={Banknote} title="暂无换汇记录" action={<button className="button secondary" onClick={() => setEditing('new')}><Plus size={16} />新增</button>} />}
@@ -96,7 +99,7 @@ function RateChart({ points, currency }: { points: RateResult['history']; curren
 }
 
 function ExchangeForm({ item, data, refresh, notify, onClose }: ModuleProps & { item?: ExchangeRecord; onClose: () => void }) {
-  const [values, setValues] = useState({ date: item?.date || today(data.profile.timeZone), fromCurrency: item?.fromCurrency || data.profile.baseCurrency, toCurrency: item?.toCurrency || data.profile.localCurrency, fromAmount: item?.fromAmount.toString() || '', toAmount: item?.toAmount.toString() || '', note: item?.note || '' });
+  const [values, setValues] = useState({ date: item?.date || today(data.profile.timeZone), fromCurrency: item?.fromCurrency || data.profile.baseCurrency, toCurrency: item?.toCurrency || (data.profile.localCurrency === data.profile.baseCurrency ? (data.profile.baseCurrency === 'USD' ? 'TWD' : 'USD') : data.profile.localCurrency), fromAmount: item?.fromAmount.toString() || '', toAmount: item?.toAmount.toString() || '', note: item?.note || '' });
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   async function submit(event: FormEvent) {
     event.preventDefault(); setError('');
@@ -106,7 +109,7 @@ function ExchangeForm({ item, data, refresh, notify, onClose }: ModuleProps & { 
     catch (failure) { setError(messageOf(failure)); } finally { setBusy(false); }
   }
   const options = [...new Set([...currencies, values.fromCurrency, values.toCurrency])];
-  return <Modal title={item ? '编辑换汇记录' : '记录一次换汇'} onClose={() => !busy && onClose()}><form className="form-grid" onSubmit={submit}>
+  return <Modal title={item ? '编辑换汇记录' : '记录一次换汇'} onClose={() => !busy && onClose()}><form className="form-grid finance-form" onSubmit={submit}>
     <Field label="换汇日期"><input type="date" required max={today(data.profile.timeZone)} value={values.date} onChange={event => setValues({ ...values, date: event.target.value })} /></Field>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 12 }}><Field label="实际支付金额（含手续费）"><input type="number" inputMode="decimal" min="0.01" max="1000000000" step="0.01" required autoFocus value={values.fromAmount} placeholder="0.00" onChange={event => setValues({ ...values, fromAmount: event.target.value })} /></Field><Field label="支付币种"><select value={values.fromCurrency} onChange={event => setValues({ ...values, fromCurrency: event.target.value })}>{options.map(currency => <option key={currency}>{currency}</option>)}</select></Field></div>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 12 }}><Field label="实际收到金额"><input type="number" inputMode="decimal" min="0.01" max="1000000000" step="0.01" required value={values.toAmount} placeholder="0.00" onChange={event => setValues({ ...values, toAmount: event.target.value })} /></Field><Field label="收到币种"><select value={values.toCurrency} onChange={event => setValues({ ...values, toCurrency: event.target.value })}>{options.map(currency => <option key={currency}>{currency}</option>)}</select></Field></div>
@@ -121,7 +124,3 @@ function DeleteExchange({ item, refresh, notify, onClose }: { item: ExchangeReco
   async function remove() { setBusy(true); setError(''); try { await deleteItem('exchanges', item.id); await refresh(); notify('换汇记录已删除'); onClose(); } catch (failure) { setError(messageOf(failure)); } finally { setBusy(false); } }
   return <Modal title="删除换汇？" onClose={() => !busy && onClose()}><p>{money(item.fromAmount, item.fromCurrency)} → {money(item.toAmount, item.toCurrency)}</p>{error && <p className="error-message" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" disabled={busy} onClick={onClose}>取消</button><button className="button danger" disabled={busy} onClick={remove}>{busy ? '删除中…' : '删除'}</button></div></Modal>;
 }
-
-
-
-

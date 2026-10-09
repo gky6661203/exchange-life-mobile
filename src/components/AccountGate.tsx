@@ -23,7 +23,7 @@ export default function AccountGate({ brand, onLogin }: { brand: ReactNode; onLo
   }
   return <main className="account-page">
     <header className="account-brand">{brand}</header>
-    <section className="account-intro"><div className="account-orbit" aria-hidden="true"><span>AI</span><span>薄肌</span><span>炒股</span><div><ArrowRight size={42} strokeWidth={1.6} /></div></div><h1>每天，更新<br />自己的版本。</h1><p>课表、每日计划、训练日历与股票，<br />把重要的事收进自己的生活空间。</p></section>
+    <section className="account-intro"><h1>我的生活</h1></section>
     <section className="account-card" aria-label="账号登录与注册">
       <div className="account-tabs" role="group" aria-label="选择登录或注册"><button type="button" aria-pressed={!registering} onClick={() => switchMode('login')} disabled={busy}>登录</button><button type="button" aria-pressed={registering} onClick={() => switchMode('register')} disabled={busy}>注册账号</button></div>
       <h2>{registering ? '建立你的生活空间' : '欢迎回来'}</h2><p className="muted">{registering ? '每个账号都有独立的计划、日历与卡包。' : '登录后，接着过好今天。'}</p>
@@ -38,6 +38,6 @@ export default function AccountGate({ brand, onLogin }: { brand: ReactNode; onLo
       <p className="account-security"><ShieldCheck size={15} />资料仅向你的账号开放</p>
       {registering && <p className="account-note">请保存好密码。目前不提供邮件找回密码。</p>}
     </section>
-    <footer className="account-footer">新时代版本答案 · AI + 薄肌 + 炒股</footer>
+    <footer className="account-footer">新时代版本答案</footer>
   </main>;
 }

@@ -23,7 +23,7 @@ export default function Expenses({ data, refresh, notify, initialCreate = false 
   const [deleting, setDeleting] = useState<Expense | null>(null);
   const monthlyExpenses = useMemo(() => expenses.filter(item => item.date.startsWith(month)).sort((a, b) => b.date.localeCompare(a.date)), [expenses, month]);
   const monthTotal = monthlyExpenses.reduce((total, item) => total + item.baseAmount, 0);
-  const semesterTotal = expenses.filter(item => (!profile.semesterStart || item.date >= profile.semesterStart) && (!profile.semesterEnd || item.date <= profile.semesterEnd)).reduce((total, item) => total + item.baseAmount, 0);
+  const semesterTotal = expenses.filter(item => item.baseCurrency === profile.baseCurrency).reduce((total, item) => total + item.baseAmount, 0);
   const monthlyBudget = profile.monthlyBudgets[month] || 0;
   const categoryTotals = categories.map((category, index) => ({ category, color: categoryColors[index]!, total: monthlyExpenses.filter(item => item.category === category).reduce((sum, item) => sum + item.baseAmount, 0) })).filter(item => item.total > 0);
   const customCategories = [...new Set(monthlyExpenses.map(item => item.category))].filter(category => !categories.includes(category));
@@ -43,7 +43,7 @@ export default function Expenses({ data, refresh, notify, initialCreate = false 
     <div className="stat-grid">
       <div className="stat-card"><span className="muted">本月支出 · {profile.baseCurrency}</span><strong>{money(monthTotal, profile.baseCurrency)}</strong><span className="muted">{monthlyExpenses.length} 笔记录 · {monthLabel(month)}</span></div>
       <div className="stat-card"><span className="muted">本月可用预算</span><strong>{monthlyBudget > 0 ? money(monthlyBudget - monthTotal, profile.baseCurrency) : '尚未设置'}</strong><span className="muted">{monthlyBudget > 0 ? `预算 ${money(monthlyBudget, profile.baseCurrency)}` : '0'}</span></div>
-      <div className="stat-card"><span className="muted">学期剩余预算</span><strong>{profile.semesterBudget > 0 ? money(profile.semesterBudget - semesterTotal, profile.baseCurrency) : '尚未设置'}</strong><button className="button ghost" onClick={() => setBudgetOpen(true)}><Pencil size={14} />调整预算</button></div>
+      <div className="stat-card"><span className="muted">总预算剩余</span><strong>{profile.semesterBudget > 0 ? money(profile.semesterBudget - semesterTotal, profile.baseCurrency) : '尚未设置'}</strong><button className="button ghost" onClick={() => setBudgetOpen(true)}><Pencil size={14} />调整预算</button></div>
     </div>
     {monthlyBudget > 0 && <div className="panel" style={{ padding: '20px 24px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}><span>本月预算使用</span><span style={{ overflowWrap: 'anywhere' }} className={monthTotal > monthlyBudget ? 'error-message' : 'muted'}>{Math.round(monthTotal / monthlyBudget * 100).toLocaleString()}%{monthTotal > monthlyBudget ? ' · 已超出预算' : ''}</span></div>
@@ -94,6 +94,7 @@ function ExpenseForm({ item, data, refresh, notify, onClose }: ModuleProps & { i
     <Field label="分类"><select value={values.category} onChange={event => setValues({ ...values, category: event.target.value })}>{[...new Set([...categories, values.category])].map(category => <option key={category}>{category}</option>)}</select></Field>
     <Field label="日期"><input type="date" required max={today(data.profile.timeZone)} value={values.date} onChange={event => setValues({ ...values, date: event.target.value })} /></Field>
     <Field label="备注（选填）"><input maxLength={300} value={values.note} onChange={event => setValues({ ...values, note: event.target.value })} placeholder="这笔钱花在哪里？" /></Field>
+    {values.currency !== data.profile.baseCurrency && <p className="muted small">保存时按支出日期汇率换算为 {data.profile.baseCurrency}</p>}
     {item && item.currency !== item.baseCurrency && <p className="muted" style={{ fontSize: 12 }}>原记录汇率：1 {item.currency} = {item.rate.toFixed(4)} {item.baseCurrency}（{shortDate(item.rateDate)}）</p>}
     {error && <p role="alert" className="error-message">{error}</p>}<div className="form-actions"><button type="button" className="button secondary" disabled={busy} onClick={onClose}>取消</button><SubmitButton busy={busy}>保存支出</SubmitButton></div>
   </form></Modal>;
@@ -108,7 +109,7 @@ function BudgetForm({ data, month, refresh, notify, onClose }: ModuleProps & { m
     try { await api('/profile', { method: 'PUT', body: JSON.stringify({ ...data.profile, semesterBudget: Number(semesterBudget || 0), monthlyBudgets: { ...data.profile.monthlyBudgets, [month]: Number(monthlyBudget || 0) } }) }); await refresh(); notify('预算已保存'); onClose(); }
     catch (failure) { setError(messageOf(failure)); } finally { setBusy(false); }
   }
-  return <Modal title="预算" onClose={() => !busy && onClose()}><form className="form-grid finance-form" onSubmit={submit}><Field label="学期总预算"><input type="number" inputMode="decimal" min="0" max="1000000000" step="0.01" autoFocus value={semesterBudget} onChange={event => setSemesterBudget(event.target.value)} placeholder="0.00" /></Field><Field label={`${monthLabel(month)}预算`}><input type="number" inputMode="decimal" min="0" max="1000000000" step="0.01" value={monthlyBudget} onChange={event => setMonthlyBudget(event.target.value)} placeholder="0.00" /></Field>{error && <p className="error-message" role="alert">{error}</p>}<div className="form-actions"><button type="button" className="button secondary" disabled={busy} onClick={onClose}>取消</button><SubmitButton busy={busy}>保存预算</SubmitButton></div></form></Modal>;
+  return <Modal title="预算" onClose={() => !busy && onClose()}><form className="form-grid finance-form" onSubmit={submit}><Field label="总预算"><input type="number" inputMode="decimal" min="0" max="1000000000" step="0.01" autoFocus value={semesterBudget} onChange={event => setSemesterBudget(event.target.value)} placeholder="0.00" /></Field><Field label={`${monthLabel(month)}预算`}><input type="number" inputMode="decimal" min="0" max="1000000000" step="0.01" value={monthlyBudget} onChange={event => setMonthlyBudget(event.target.value)} placeholder="0.00" /></Field>{error && <p className="error-message" role="alert">{error}</p>}<div className="form-actions"><button type="button" className="button secondary" disabled={busy} onClick={onClose}>取消</button><SubmitButton busy={busy}>保存预算</SubmitButton></div></form></Modal>;
 }
 
 function DeleteExpense({ item, refresh, notify, onClose }: { item: Expense; refresh: () => Promise<void>; notify: (message: string) => void; onClose: () => void }) {
@@ -117,7 +118,3 @@ function DeleteExpense({ item, refresh, notify, onClose }: { item: Expense; refr
   async function remove() { setBusy(true); setError(''); try { if (!removed.current) { await deleteItem('expenses', item.id); removed.current = true; } await refresh(); notify('支出已删除'); onClose(); } catch (failure) { setError(messageOf(failure)); } finally { setBusy(false); } }
   return <Modal title="删除支出？" onClose={() => !busy && onClose()}><p>{item.note || item.category} · {money(item.amount, item.currency)}</p>{error && <p role="alert" className="error-message">{error}</p>}<div className="form-actions"><button className="button secondary" disabled={busy} onClick={onClose}>取消</button><button className="button danger" disabled={busy} onClick={remove}>{busy ? '删除中…' : '删除'}</button></div></Modal>;
 }
-
-
-
-

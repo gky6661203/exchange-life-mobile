@@ -29,7 +29,7 @@ export default function Subscriptions({ data, refresh, notify }: ModuleProps) {
     catch (cause) { setError((cause as Error).message); } finally { setPending(value => { const next = new Set(value); next.delete(item.id); return next; }); }
   }
   return <div className="page-stack subscription-page">
-    <PageHeading title="订阅卡包" description="每一笔续费，提前有数。" action={<button className="button" onClick={() => open()}><Plus size={18}/>新增</button>}/>
+    <PageHeading title="订阅卡包"  action={<button className="button" onClick={() => open()}><Plus size={18}/>新增</button>}/>
     <div className="era-summary-row"><div><small>每月订阅支出</small><strong>{monthly.length ? monthly.map(([currency,amount]) => money(amount,currency)).join(' / ') : '还没有订阅'}</strong></div><span className="era-counter">{items.filter(item=>item.active).length}<small>项启用</small></span></div>
     {!!due.length && <section className="renewal-alert"><Bell size={21}/><div><strong>{due.length} 项订阅需要关注</strong><p>{due.slice(0,2).map(item => `${item.name} · ${reminderLabel(item,date)}`).join('，')}</p></div></section>}
     {cards.length > 0 && <WalletScene items={cards} selected={selected} onSelect={setSelected} title="订阅卡包"/>}

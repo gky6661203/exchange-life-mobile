@@ -7,3 +7,5 @@
 @media(prefers-reduced-motion:reduce){.hub-card{transition:none}.hub-card:active{transform:none}}
 @media(max-width:800px){.topbar .topbar-actions{display:flex}.topbar-actions .notification-button{display:flex;align-items:center;justify-content:center}} .modal-body .module-form{grid-template-columns:1fr}
 .fitness-simple-note{margin-bottom:20px}.home-courses .agenda-period{max-width:125px;line-height:1.7}.home-courses .home-agenda-row{gap:13px}
+.home-spend{display:block;font-size:35px;letter-spacing:-1px;margin:5px 0 22px}.home-finance-actions{display:flex;gap:12px;flex-wrap:wrap}.home-finance-actions .button{flex:1}.currency-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+.era-greeting .spatial-mark{width:70px;height:65px;flex-shrink:0}.sidebar{overflow-y:auto}.modal-body .finance-form{grid-template-columns:1fr}
